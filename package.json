@@ -1,0 +1,27 @@
+{
+  "name": "mcbracket",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "麦门最强餐品争霸赛 — 8 款真实麦当劳餐品，7 场对决，一个冠军。数据来自麦当劳官方 MCP。",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "html-to-image": "^1.11.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
+  }
+}

@@ -1,0 +1,144 @@
+{
+  "schema": "mcbracket/snapshot@1",
+  "mode": "demo-snapshot",
+  "endpoint": "https://mcp.mcd.cn",
+  "collectedAt": "2026-10-14 11:26:56",
+  "collectedAtTimezone": "GMT+08:00",
+  "store": {
+    "code": "1450713",
+    "name": "麦当劳上海黄浦华旭国际大厦餐厅",
+    "city": "上海",
+    "businessStatus": true
+  },
+  "orderType": "堂食/到店取餐渠道(orderType=1, beType=1)",
+  "toolsUsed": [
+    "query-nearby-stores",
+    "query-meals",
+    "list-nutrition-foods",
+    "calculate-price",
+    "now-time-info"
+  ],
+  "notes": "菜单价格来自 query-meals（单位：元，字符串）；核价来自 calculate-price（单位：分）。两者单位不同，已统一换算为分后比较。营养数据来自 list-nutrition-foods，仅采用商品名精确匹配项，未匹配一律显示暂无可靠数据。",
+  "items": [
+    {
+      "code": "1100",
+      "name": "巨无霸",
+      "menuPriceCents": 2550,
+      "quotePriceCents": 2550,
+      "priceSource": "calculate-price",
+      "nutrition": {
+        "energyKcal": 513,
+        "protein": 27.0,
+        "fat": 26.0,
+        "carbohydrate": 42.0,
+        "sodium": 961
+      },
+      "nutritionMatch": "exact"
+    },
+    {
+      "code": "511781",
+      "name": "培根安格斯厚牛堡",
+      "menuPriceCents": 3450,
+      "quotePriceCents": null,
+      "priceSource": "query-meals",
+      "nutrition": {
+        "energyKcal": 707,
+        "protein": 34.0,
+        "fat": 44.0,
+        "carbohydrate": 43.0,
+        "sodium": 1037
+      },
+      "nutritionMatch": "exact"
+    },
+    {
+      "code": "4648",
+      "name": "不素之霸双层牛堡",
+      "menuPriceCents": 2650,
+      "quotePriceCents": null,
+      "priceSource": "query-meals",
+      "nutrition": {
+        "energyKcal": 493,
+        "protein": 28.0,
+        "fat": 27.0,
+        "carbohydrate": 34.0,
+        "sodium": 1012
+      },
+      "nutritionMatch": "exact"
+    },
+    {
+      "code": "1600",
+      "name": "麦香鱼",
+      "menuPriceCents": 2250,
+      "quotePriceCents": null,
+      "priceSource": "query-meals",
+      "nutrition": {
+        "energyKcal": 325,
+        "protein": 16.0,
+        "fat": 13.0,
+        "carbohydrate": 35.0,
+        "sodium": 556
+      },
+      "nutritionMatch": "exact"
+    },
+    {
+      "code": "1450",
+      "name": "麦香鸡",
+      "menuPriceCents": 1700,
+      "quotePriceCents": null,
+      "priceSource": "query-meals",
+      "nutrition": {
+        "energyKcal": 369,
+        "protein": 15.0,
+        "fat": 17.0,
+        "carbohydrate": 39.0,
+        "sodium": 731
+      },
+      "nutritionMatch": "exact"
+    },
+    {
+      "code": "520445",
+      "name": "薄皮焦香V翅",
+      "menuPriceCents": 1600,
+      "quotePriceCents": null,
+      "priceSource": "query-meals",
+      "nutrition": {
+        "energyKcal": 192,
+        "protein": 17.0,
+        "fat": 11.0,
+        "carbohydrate": 6.0,
+        "sodium": 594
+      },
+      "nutritionMatch": "exact"
+    },
+    {
+      "code": "2430",
+      "name": "【美汁源】“黄金橙橙”",
+      "menuPriceCents": 1300,
+      "quotePriceCents": null,
+      "priceSource": "query-meals",
+      "nutrition": {
+        "energyKcal": 165,
+        "protein": 0.0,
+        "fat": 0.0,
+        "carbohydrate": 41.0,
+        "sodium": 53
+      },
+      "nutritionMatch": "exact"
+    },
+    {
+      "code": "6102",
+      "name": "苹果片",
+      "menuPriceCents": 700,
+      "quotePriceCents": null,
+      "priceSource": "query-meals",
+      "nutrition": {
+        "energyKcal": 32,
+        "protein": 0.0,
+        "fat": 0.0,
+        "carbohydrate": 7.0,
+        "sodium": 0
+      },
+      "nutritionMatch": "exact"
+    }
+  ]
+}
