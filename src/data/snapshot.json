@@ -3,7 +3,7 @@
   "mode": "demo-snapshot",
   "capturedWith": "official-mcp",
   "endpoint": "https://mcp.mcd.cn",
-  "collectedAt": "2026-10-15 09:30:39",
+  "collectedAt": "2026-10-15 09:56:44",
   "collectedAtTimezone": "GMT+08:00",
   "store": {
     "code": "1450713",
@@ -132,7 +132,7 @@
         "sodium": 53
       },
       "nutritionMatch": "exact",
-      "collectedAt": "2026-10-15 09:30:39"
+      "collectedAt": "2026-10-15 09:56:44"
     },
     {
       "code": "6102",
@@ -152,11 +152,13 @@
     }
   ],
   "collectedFrom": "2026-10-14 11:26:56",
-  "collectedTo": "2026-10-15 09:30:39",
-  "coverage": {
+  "collectedTo": "2026-10-15 09:56:44",
+  "lastRun": {
+    "at": "2026-10-15 09:56:44",
     "requested": 8,
     "freshThisRun": 1,
     "carriedFromPrevious": 7,
+    "refreshedFromPrevious": 1,
     "missing": [],
     "droppedThisRun": {
       "1100": "not on the menu at this daypart",
@@ -168,5 +170,5 @@
       "6102": "not on the menu at this daypart"
     }
   },
-  "previousCollectedAt": "2026-10-14 11:26:56"
+  "previousCollectedAt": "2026-10-15 09:56:41"
 }

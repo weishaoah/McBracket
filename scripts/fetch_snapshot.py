@@ -380,14 +380,19 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
     if len(stamps) > 1:
         snapshot['collectedFrom'] = stamps[0]
         snapshot['collectedTo'] = stamps[-1]
-    snapshot['coverage'] = {
+    # Named `lastRun` on purpose: this describes only the run that just
+    # happened. After several merges it is not the coverage of the file as a
+    # whole, and reading it as such would be misleading.
+    snapshot['lastRun'] = {
+        'at': (official or {}).get('formatted') or (official or {}).get('datetime'),
         'requested': len(SEED_CODES),
         'freshThisRun': len(items),
         'carriedFromPrevious': len(carried),
+        'refreshedFromPrevious': len(refreshed),
         'missing': sorted(set(SEED_CODES) - {i['code'] for i in merged}),
     }
     if dropped:
-        snapshot['coverage']['droppedThisRun'] = dropped
+        snapshot['lastRun']['droppedThisRun'] = dropped
     if prev:
         snapshot['previousCollectedAt'] = prev.get('collectedAt')
 
