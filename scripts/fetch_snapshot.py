@@ -282,16 +282,22 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
         nutrition = parse_nutrition_csv(nut_obj.get('data'))
 
     items = []
+    dropped: dict[str, str] = {}
     for sku in SEED_CODES:
         entry = meals.get(sku)
         if not isinstance(entry, dict):
+            # Happens for real: McDonald's swaps the menu by daypart, so burger
+            # seeds are absent from the breakfast menu before ~10:30.
+            dropped[sku] = 'not on the menu at this daypart'
             continue
         title = entry.get('name') or entry.get('productName')
         if not title:
+            dropped[sku] = 'menu entry has no name'
             continue
         menu_cents = yuan_to_cents(entry.get('currentPrice'))
         quote_cents = None
         quote_ok = False
+        quote_note = None
         try:
             q = unwrap(mcp.call('calculate-price', {
                 'storeCode': code, 'orderType': 1, 'beType': 1,
@@ -306,8 +312,12 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
                         cand = pl[0].get('price')
                 quote_cents = int(cand) if isinstance(cand, (int, float)) else None
                 quote_ok = quote_cents is not None and quote_cents > 0
-        except McpError:
-            pass
+                if not quote_ok:
+                    quote_note = 'calculate-price returned no positive total'
+            else:
+                quote_note = f"calculate-price business failure: {q.get('code')}"
+        except McpError as exc:
+            quote_note = f'calculate-price transport error: {exc}'
 
         nut = nutrition.get(title)
         items.append({
@@ -315,22 +325,71 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
             'name': title,
             'menuPriceCents': menu_cents,
             'quotePriceCents': quote_cents if quote_ok else None,
+            'quoteNote': quote_note,
             'priceSource': 'calculate-price' if quote_ok else ('query-meals' if menu_cents else 'none'),
             'nutrition': nut,          # None => render as "暂无可靠数据"
             'nutritionMatch': 'exact' if nut else 'none',
+            'collectedAt': (official or {}).get('formatted') or (official or {}).get('datetime'),
         })
 
     snapshot = {
         'schema': 'mcbracket/snapshot@1',
-        'mode': 'live',
+        # `mode` describes how the *page* gets its data, not how this file was
+        # produced. The web app always reads this static file, so claiming
+        # 'live' here would render "实时查询" next to data that is really a
+        # snapshot. `capturedWith` records that a real MCP run produced it.
+        'mode': 'demo-snapshot',
+        'capturedWith': 'official-mcp',
         'endpoint': ENDPOINT,
         'collectedAt': (official or {}).get('formatted') or (official or {}).get('datetime'),
         'collectedAtTimezone': (official or {}).get('timezone', 'GMT+08:00'),
         'store': {'code': code, 'name': name,
                   'city': city, 'businessStatus': chosen.get('businessStatus')},
+        # Every figure below comes from this one channel, so prices are only
+        # ever compared within identical store + order-type conditions.
+        'orderType': '堂食/到店取餐渠道（orderType=1, beType=1）',
+        'notes': (
+            '菜单价格来自 query-meals（单位：元，字符串）；核价来自 calculate-price'
+            '（单位：分，整数）。两者单位不同，已统一换算为分后比较。'
+            '营养数据来自 list-nutrition-foods，仅采用商品名精确匹配项，'
+            '未匹配一律显示「暂无可靠数据」。'
+            '麦当劳菜单按营业时段切换（如早餐时段不供应汉堡），'
+            '因此快照可能是分批采集的，每条数据保留各自的采集时间。'
+        ),
         'toolsUsed': sorted(set(tools_used)),
         'items': items,
     }
+
+    # ---- merge with the previous snapshot ---------------------------------- #
+    # The menu is daypart-dependent (breakfast has no burgers), so a single run
+    # cannot always see all eight seeds. Merging keeps whatever a previous run
+    # captured instead of silently downgrading the snapshot to one item.
+    prev = None
+    if out_path.exists():
+        try:
+            prev = json.loads(out_path.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            prev = None
+
+    merged, carried, refreshed = merge_items(items, prev)
+    snapshot['items'] = merged
+
+    # When rows come from more than one run, say so: a single "collectedAt"
+    # would overstate how fresh most of the data is.
+    stamps = sorted({r.get('collectedAt') for r in merged if r.get('collectedAt')})
+    if len(stamps) > 1:
+        snapshot['collectedFrom'] = stamps[0]
+        snapshot['collectedTo'] = stamps[-1]
+    snapshot['coverage'] = {
+        'requested': len(SEED_CODES),
+        'freshThisRun': len(items),
+        'carriedFromPrevious': len(carried),
+        'missing': sorted(set(SEED_CODES) - {i['code'] for i in merged}),
+    }
+    if dropped:
+        snapshot['coverage']['droppedThisRun'] = dropped
+    if prev:
+        snapshot['previousCollectedAt'] = prev.get('collectedAt')
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -338,15 +397,73 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
     print(f'store  : {name} ({code})')
     print(f'time   : {snapshot["collectedAt"]} {snapshot["collectedAtTimezone"]}')
     print(f'tools  : {snapshot["toolsUsed"]}')
-    print(f'items  : {len(items)}/{len(SEED_CODES)}')
-    for it in items:
+    print(f'fresh  : {len(items)}/{len(SEED_CODES)}   '
+          f'carried: {len(carried)}   total: {len(merged)}/{len(SEED_CODES)}')
+    for it in merged:
         nut = it['nutrition']
-        print(f"  {it['code']:>10} {it['name']:<14} "
+        tag = ' ' if it['code'] in {i['code'] for i in items} else '~'
+        print(f" {tag}{it['code']:>10} {it['name']:<14} "
               f"menu={'-' if it['menuPriceCents'] is None else it['menuPriceCents']/100:>6} "
               f"quote={'-' if it['quotePriceCents'] is None else it['quotePriceCents']/100:>6} "
               f"kcal={'-' if not nut else nut['energyKcal']:>4} match={it['nutritionMatch']}")
+    for sku, why in dropped.items():
+        print(f"  - {sku}: {why}")
+    print('  (~ = carried over from the previous snapshot)')
     print(f'written: {out_path}')
     return snapshot
+
+
+def merge_items(fresh: list[dict], prev: dict | None):
+    """Keep the best evidence per seed code across runs.
+
+    A fresh row wins when it carries more information than the previous one
+    (a verified quote beats a menu-only price). Otherwise the previous row is
+    carried over, so a breakfast-hour run never erases a lunch-hour capture.
+    Returns (merged, carried_codes, refreshed_codes).
+    """
+    prev_rows = {r['code']: r for r in ((prev or {}).get('items') or [])}
+    fresh_codes = {r['code'] for r in fresh}
+
+    merged: list[dict] = []
+    carried: list[str] = []
+    refreshed: list[str] = []
+
+    for row in fresh:
+        old = prev_rows.get(row['code'])
+        if old and _score(old) > _score(row):
+            kept = dict(old)
+            kept.setdefault('collectedAt', (prev or {}).get('collectedAt'))
+            merged.append(kept)
+            carried.append(row['code'])
+        else:
+            merged.append(row)
+            if old:
+                refreshed.append(row['code'])
+
+    prev_at = (prev or {}).get('collectedAt')
+    for code, row in prev_rows.items():
+        if code not in fresh_codes:
+            row = dict(row)
+            # A carried row keeps the timestamp it was actually captured at, so
+            # the snapshot never implies it is fresher than it is.
+            row.setdefault('collectedAt', prev_at)
+            merged.append(row)
+            carried.append(code)
+
+    merged.sort(key=lambda r: SEED_CODES.index(r['code']) if r['code'] in SEED_CODES else 99)
+    return merged, carried, refreshed
+
+
+def _score(row: dict) -> int:
+    """Evidence ranking: verified quote > menu price > anything else."""
+    s = 0
+    if row.get('quotePriceCents'):
+        s += 4
+    if row.get('menuPriceCents'):
+        s += 2
+    if row.get('nutrition'):
+        s += 1
+    return s
 
 
 def main():

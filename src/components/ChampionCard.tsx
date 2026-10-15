@@ -1,7 +1,7 @@
 import { FoodArt } from './FoodArt'
 import { priceLabel } from '../engine/championTitle'
 import { ROUND_LABEL, type Round } from '../engine/tournament'
-import type { Snapshot, SnapshotItem } from '../types'
+import { collectedLabel, type Snapshot, type SnapshotItem } from '../types'
 
 interface Props {
   snapshot: Snapshot
@@ -57,7 +57,7 @@ export function ChampionCard({ snapshot, champion, badge, quote, route, repoUrl 
           数据来源：麦当劳官方 MCP · {snapshot.store.name}（{snapshot.store.code}）
         </div>
         <div>
-          采集时间：{snapshot.collectedAt} {snapshot.collectedAtTimezone}
+          采集时间：{collectedLabel(snapshot)}
           {snapshot.mode === 'demo-snapshot' ? '（官方数据快照，非实时）' : ''}
         </div>
         <div>

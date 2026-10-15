@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import snapshotJson from './data/snapshot.json'
-import type { Snapshot, SnapshotItem } from './types'
+import { collectedLabel, type Snapshot, type SnapshotItem } from './types'
 import {
   buildMatches,
   championCode,
@@ -218,7 +218,7 @@ export default function App() {
               <b>采集门店</b>：{snapshot.store.name}（{snapshot.store.code}）· {snapshot.orderType}
             </div>
             <div>
-              <b>采集时间</b>：{snapshot.collectedAt} {snapshot.collectedAtTimezone}
+              <b>采集时间</b>：{collectedLabel(snapshot)}
               {snapshot.mode === 'demo-snapshot' ? '（官方数据快照，非实时）' : '（实时查询）'}
             </div>
             <div>

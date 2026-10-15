@@ -1,6 +1,6 @@
 import { FoodArt } from './FoodArt'
 import { priceLabel } from '../engine/championTitle'
-import type { Snapshot, SnapshotItem } from '../types'
+import { collectedLabel, type Snapshot, type SnapshotItem } from '../types'
 
 interface Props {
   snapshot: Snapshot
@@ -59,7 +59,7 @@ export function HomeView({ snapshot, items, onStart }: Props) {
           <b>采集门店</b>：{snapshot.store.name}（门店号 {snapshot.store.code}）
         </div>
         <div>
-          <b>采集时间</b>：{snapshot.collectedAt} {snapshot.collectedAtTimezone}
+          <b>采集时间</b>：{collectedLabel(snapshot)}
           {snapshot.mode === 'demo-snapshot' ? '（官方数据快照，非实时）' : '（实时查询）'}
         </div>
       </div>
