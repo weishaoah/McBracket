@@ -1,6 +1,5 @@
 import { FoodArt } from './FoodArt'
-import { priceLabel } from '../engine/championTitle'
-import { collectedLabel, type Snapshot, type SnapshotItem } from '../types'
+import { collectedLabel, priceCaption, type Snapshot, type SnapshotItem } from '../types'
 
 interface Props {
   snapshot: Snapshot
@@ -45,7 +44,7 @@ export function HomeView({ snapshot, items, onStart }: Props) {
             <div className="roster-item" key={it.code}>
               <FoodArt code={it.code} size={54} />
               <div className="roster-name">{it.name}</div>
-              <div className="roster-price">{priceLabel(it)}</div>
+              <div className="roster-price">{priceCaption(it)}</div>
             </div>
           ))}
         </div>
@@ -61,6 +60,9 @@ export function HomeView({ snapshot, items, onStart }: Props) {
         <div>
           <b>采集时间</b>：{collectedLabel(snapshot)}
           {snapshot.mode === 'demo-snapshot' ? '（官方数据快照，非实时）' : '（实时查询）'}
+        </div>
+        <div>
+          本作品为独立开发项目，与麦当劳官方无关；餐品信息、价格及供应状态以麦当劳官方渠道的实时结果为准。
         </div>
       </div>
     </div>

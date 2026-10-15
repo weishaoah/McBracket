@@ -9,7 +9,7 @@ export AGENT_BROWSER_DOWNLOAD_PATH="G:/WorkBuddy/McBracket/shots"
 mkdir -p shots
 
 echo "== open =="
-$AB viewport 390 844
+$AB set viewport 390 844
 $AB open "$BASE"
 $AB wait --load networkidle
 

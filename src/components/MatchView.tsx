@@ -1,6 +1,6 @@
 import { FoodArt } from './FoodArt'
 import { DataReveal } from './DataReveal'
-import { priceLabel } from '../engine/championTitle'
+import { priceCaption } from '../types'
 import { ROUND_LABEL, TOTAL_MATCHES, type Match } from '../engine/tournament'
 import type { SnapshotItem } from '../types'
 
@@ -36,7 +36,7 @@ export function MatchView({ match, a, b, done, pick, byCode, onPick, onNext, isL
       >
         <FoodArt code={item.code} size={104} />
         <div className="contender-name">{item.name}</div>
-        <div className="contender-meta">{priceLabel(item)}</div>
+        <div className="contender-meta">{priceCaption(item)}</div>
         <div className="contender-hint">
           {locked ? (isWinner ? '晋级 ✓' : '淘汰') : '点我晋级'}
         </div>

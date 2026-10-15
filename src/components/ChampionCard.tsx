@@ -1,5 +1,5 @@
 import { FoodArt } from './FoodArt'
-import { priceLabel } from '../engine/championTitle'
+import { priceCaption } from '../types'
 import { ROUND_LABEL, type Round } from '../engine/tournament'
 import { collectedLabel, type Snapshot, type SnapshotItem } from '../types'
 
@@ -30,7 +30,7 @@ export function ChampionCard({ snapshot, champion, badge, quote, route, repoUrl 
           <h2 className="card-champ-name">{champion.name}</h2>
           <div className="card-badge">{badge}</div>
           <div style={{ marginTop: 10, color: '#ffc72c', fontSize: 18, fontWeight: 700 }}>
-            我的麦门冠军 · {priceLabel(champion)}
+            我的麦门冠军 · {priceCaption(champion)}
           </div>
         </div>
       </div>
@@ -44,12 +44,6 @@ export function ChampionCard({ snapshot, champion, badge, quote, route, repoUrl 
             <div className="card-result-text">击败 {r.opponent}</div>
           </div>
         ))}
-        {route.length < 3 && (
-          <div className="card-result-item">
-            <div className="card-result-round">战绩</div>
-            <div className="card-result-text">7 场全胜登顶</div>
-          </div>
-        )}
       </div>
 
       <div className="card-foot">
@@ -61,7 +55,8 @@ export function ChampionCard({ snapshot, champion, badge, quote, route, repoUrl 
           {snapshot.mode === 'demo-snapshot' ? '（官方数据快照，非实时）' : ''}
         </div>
         <div>
-          营养数据仅在官方营养表精确匹配时展示，未匹配一律标注为暂无可靠数据。本作品为独立开发，非麦当劳官方产品。
+          价格优先采用官方核价，未核价商品仅展示菜单参考价；营养数据仅在官方营养表
+          精确匹配时展示，未匹配一律标注为暂无可靠数据。本作品为独立开发，非麦当劳官方产品。
         </div>
         <div className="repo">{repoUrl}</div>
       </div>

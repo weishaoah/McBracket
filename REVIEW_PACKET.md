@@ -1,11 +1,11 @@
 # McBracket · 外部审查包
 
-> 自包含审查材料：项目背景 + 数据证据 + 全部源码 + 待审问题。
+> 自包含审查材料：项目背景 + 数据证据 + 发布前审计 + 全部源码 + 待审问题。
 > 重新生成：`python scripts/make_review_packet.py`（代码改了记得重跑）。
 
 ### 怎么用
 
-1. **整篇复制粘贴**给 GPT / Claude 等外部模型（约 65KB，长上下文模型无压力）。
+1. **整篇复制粘贴**给 GPT / Claude 等外部模型（长上下文模型无压力）。
 2. 粘贴时**不要删 §0 的审查指令** —— 那段决定了它审什么；只丢源码进去，模型会退化成「夸一遍代码写得不错」。
 3. 若上下文实在不够，优先级：`§0 指令` → `§2 数据证据` → `§5 源码里的 types.ts / tournament.ts / fetch_snapshot.py`。
 4. **拿到回复后**：重点看它挑出的「说了但没做到」和「证据不足」，这两类问题我自己看不见。它夸的部分基本可以忽略。
@@ -26,49 +26,56 @@
    当前页面数据是**实时**的？我已经修过 `mode` 字段（改成 `demo-snapshot`，
    页面显示「非实时」）和分批采集的时间区间，但可能还有漏网的措辞。
 2. 「菜单价（元·字符串）vs 核价（分·整数）」的换算是否真的正确？
-   请独立核一遍 `yuan_to_cents()` 和 `effectivePriceCents()`，
+   请独立核一遍 `yuan_to_cents()`、`to_int_cents()` 和 `effectivePriceCents()`，
    这是本项目最容易出错、也最容易被评委一眼看穿的地方。
-3. 营养数据只取「商品名精确匹配」，其余显示「暂无可靠数据」。
-   这个降级策略有没有在某处被绕过（比如悄悄填了 0 或估算值）？
+3. 营养数据只取「商品名精确匹配」，官方表里缺失的字段解析为 `null`
+   （页面显示「—」/「暂无可靠数据」）。这个降级策略有没有在某处被绕过
+   （比如把缺失填成 0、或悄悄估算）？`tests/test_data_pipeline.py`
+   有没有覆盖不到的分支？
+4. 未拿到核价的商品（当前是培根安格斯厚牛堡）在页面上是否**everywhere**
+   都被标注为「菜单参考价」并带采集日期？有没有哪个界面把它当成核价展示？
 
 ### B. 合规风险（会不会被取消资格或收到律师函）
-4. 项目名含 "Mc"，README 与冠军卡上出现麦当劳商品名。
+5. 项目名含 "Mc"，README 与冠军卡上出现麦当劳商品名。
    以你的判断，这构成商标风险吗？声明「独立作品、非官方出品」的位置
-   是否足够显眼？
-5. `CONTEST_DECLARATION.md` 要求与官方模板逐字节一致，我已核对
-   （md5 `91a7b32e`）。还有哪些参赛材料是容易被漏掉的形式要求？
+   是否足够显眼（首页 / 冠军页 / 冠军卡 / README / 参赛声明）？
+6. `CONTEST_DECLARATION.md` 已与官方仓库模板逐字节比对一致（仅换行符差异）。
+   还有哪些参赛材料是容易被漏掉的形式要求（必交文件清单、Issue 报名格式）？
 
 ### C. 代码正确性
-6. `tournament.ts` 的晋级逻辑：有没有可能出现同一商品重复晋级、
-   某场比赛被跳过、或 7 场没跑完就出冠军？（我有 11 条测试含 200 次随机对局，
-   但测试可能有盲区 —— 请特别看测试**没有覆盖**的分支。）
-7. `merge_items()` 的合并逻辑：分批采集时会不会错误地用旧数据覆盖新数据？
-   `_score()` 的排序是否存在某种情况下会退化？
-8. 有没有任何路径会执行写入类 Tool（下单/领券/抽奖）？
+7. `tournament.ts` 的晋级逻辑：有没有可能出现同一商品重复晋级、
+   某场比赛被跳过、或 7 场没跑完就出冠军？（我有 26 条 Vitest 含 200 次
+   随机对局 + 21 条 Python 数据管线测试，但测试可能有盲区 ——
+   请特别看测试**没有覆盖**的分支。）
+8. `merge_items()` 的合并逻辑：跨门店/跨渠道是否被结构性阻止？
+   「旧核价继承到新行」时时间戳是否如实？超过 7 天的旧行是否真的被丢弃？
+   有没有某种输入能让旧价格静默覆盖新观测？
+9. 有没有任何路径会执行写入类 Tool（下单/领券/抽奖）？
+   `fetch_snapshot.py` 的白名单/黑名单是否可被绕过？
 
 ### D. 竞争力（这是比赛，排名只看 GitHub Star）
-9. 以评审者/路人的视角：**这个 README 前三屏**能不能让人想点 Star？
-   最劝退的地方在哪？
-10. 项目最大的卖点应该是什么？我现在的说法
+10. 以评审者/路人的视角：**这个 README 前三屏**能不能让人想点 Star？
+    最劝退的地方在哪？
+11. 项目最大的卖点应该是什么？我现在的说法
     （「真实 MCP 数据 + 8 强淘汰赛 + 可分享冠军卡」）是不是太平淡？
-11. 有没有明显的「自嗨」痕迹 —— 即我觉得有价值、但外人根本不关心的部分？
+12. 有没有明显的「自嗨」痕迹 —— 即我觉得有价值、但外人根本不关心的部分？
 
 ### E. 诚实性审查（最重要）
-12. 通读 `MCP_INTEGRATION.md` 与 `README.md`，
+13. 通读 `MCP_INTEGRATION.md` 与 `README.md`，
     找出所有**证据不足以支撑**的断言。我已经知道的一个自我质疑是：
-    「8 强选择理由是价格带宽 + 品类分散」，但实际上有 6/8 没有官方核价验证。
+    「8 强选择理由是价格带宽 + 品类分散」，但实际上有 1/8 没有官方核价验证、
+    且 8 款是特意挑的能匹配营养表的商品（选择性偏差）。
     请把这类「说了但其实没做到」的地方都挑出来。
 
 ---
 
 ## 1. 项目是什么
 
-McBracket 是一个参加「麦当劳中国开发者创新挑战赛」的网页小游戏：
+McBracket 是一个参加「麦当劳程序员创意开发大赛」的网页小游戏：
 从 8 款**真实**麦当劳餐品中，通过 7 场一对一对决（8进4→4进2→决赛），
 选出用户最喜欢的餐品，生成可分享的冠军卡 PNG。
 
-比赛排名**只看 GitHub Star 数**（截止 2026-10-25），所以「能不能让人
-想点 Star」和「数据是否真实」同等重要。
+比赛排名**只看 GitHub Star 数**（报名与排名截止 2026-10-25 23:59），所以「能不能让人想点 Star」和「数据是否真实」同等重要。
 
 技术栈：React + TypeScript + Vite，纯前端，无后端、无数据库、无登录。
 数据来自麦当劳官方 MCP（`https://mcp.mcd.cn`）的**只读**采集快照。
@@ -77,50 +84,86 @@ McBracket 是一个参加「麦当劳中国开发者创新挑战赛」的网页�
 
 - 门店：**麦当劳上海黄浦华旭国际大厦餐厅**（1450713）
 - 渠道：堂食/到店取餐渠道（orderType=1, beType=1）
-- 采集时间：2026-10-14 11:26:56 ~ 2026-10-15 09:56:44 GMT+08:00
+- 采集时间：2026-10-14 11:26:56 ~ 2026-10-15 22:00:51 GMT+08:00
 - `mode`：`demo-snapshot`　`capturedWith`：`official-mcp`
 - 使用的 Tool：calculate-price, list-nutrition-foods, now-time-info, query-meals, query-nearby-stores
-- **核价验证覆盖：2/8**（上次运行新采 1 条、沿用 7 条）
+- **核价验证覆盖：7/8**（上次运行新采 6 条、沿用 2 条）
 
 | code | 商品 | 菜单价 | 官方核价 | 价格来源 | 热量 | 采集时间 |
 |---|---|---:|---:|---|---:|---|
-| 1100 | 巨无霸 | ¥25.5 | ¥25.5 ✓一致 | calculate-price | 513 | 2026-10-14 11:26:56 |
+| 1100 | 巨无霸 | ¥25.5 | ¥25.5 ✓一致 | calculate-price | 513 | 2026-10-15 22:00:51 |
 | 511781 | 培根安格斯厚牛堡 | ¥34.5 | - | query-meals | 707 | 2026-10-14 11:26:56 |
-| 4648 | 不素之霸双层牛堡 | ¥26.5 | - | query-meals | 493 | 2026-10-14 11:26:56 |
-| 1600 | 麦香鱼 | ¥22.5 | - | query-meals | 325 | 2026-10-14 11:26:56 |
-| 1450 | 麦香鸡 | ¥17 | - | query-meals | 369 | 2026-10-14 11:26:56 |
-| 520445 | 薄皮焦香V翅 | ¥16 | - | query-meals | 192 | 2026-10-14 11:26:56 |
-| 2430 | 【美汁源】“黄金橙橙” | ¥13 | ¥13 ✓一致 | calculate-price | 165 | 2026-10-15 09:56:44 |
-| 6102 | 苹果片 | ¥7 | - | query-meals | 32 | 2026-10-14 11:26:56 |
+| 4648 | 不素之霸双层牛堡 | ¥26.5 | ¥26.5 ✓一致 | calculate-price | 493 | 2026-10-15 15:47:08 |
+| 1600 | 麦香鱼 | ¥22.5 | ¥22.5 ✓一致 | calculate-price | 325 | 2026-10-15 22:00:51 |
+| 1450 | 麦香鸡 | ¥17 | ¥17 ✓一致 | calculate-price | 369 | 2026-10-15 22:00:51 |
+| 520445 | 薄皮焦香V翅 | ¥16 | ¥16 ✓一致 | calculate-price | 192 | 2026-10-15 22:00:51 |
+| 2430 | 【美汁源】“黄金橙橙” | ¥13 | ¥13 ✓一致 | calculate-price | 165 | 2026-10-15 22:00:51 |
+| 6102 | 苹果片 | ¥7 | ¥7 ✓一致 | calculate-price | 32 | 2026-10-15 22:00:51 |
+
+## 2.5 发布前审计结果
+
+发布前审计（2026-10-15，全部为真实运行，无编造）：
+
+- **单元测试**：`npm test` → Vitest 26 条通过（淘汰赛规则 11 + 快照完整性与展示口径 15）；`python -m unittest discover -s tests` → 数据管线 21 条通过（营养缺失字段不变成 0、跨门店/渠道拒绝合并、旧价不覆盖新价、超期旧行丢弃）。
+- **类型与构建**：`tsc --noEmit` 零错误；`npm run build` 成功（dist 共 ~180KB，gzip 后 ~64KB）。
+- **浏览器验收**（agent-browser，390×844 手机视口，日志与截图在 `docs/audit/`）：首页 8 款餐品与「官方核价/菜单参考价」口径 ✓；完整 7 场对局 ✓；对阵图 7 场 7 胜 ✓；晋级路线 3 段 ✓；重新挑战回到第 1 场 ✓；冠军卡 PNG 导出为真实文件（~530KB）✓；控制台零错误 ✓。
+- **无 Token 公开 Demo**：对生产构建（dist + 静态服务）复跑全程，导出 PNG 成功，页面无任何 Token 痕迹。
+- **数据核对**：营养表 8 行与官方 `list-nutrition-foods` 实时返回值逐值一致（2026-10-15 21:44 官方时钟）；在售菜单价与官方 `query-meals` 一致。
+- **合规**：全仓无 Token/密钥/个人信息；插画均为原创 SVG；「官方」字样仅出现在数据来源语境；`CONTEST_DECLARATION.md` 与官方模板逐字一致。
+
+截图与日志：`docs/audit/audit-01..10-*.png`、`shots/audit-champion-card.png`、`docs/audit/AUDIT-EVIDENCE.md`。
 
 ## 3. 已知问题（作者自述）
 
 ### 我自己已经知道的问题（不用重复指出，但欢迎说它比我想的更严重）
 
-1. **核价只验证 2/8**：只有巨无霸（¥25.5）和美汁源（¥13.0）拿到了
-   `calculate-price` 官方核价，其余 6 款降级为 `query-meals` 菜单价。
-   原因是麦当劳菜单按营业时段切换，早餐时段汉堡不在菜单里。
-   计划午间正餐时段重采补齐。
-2. **Demo 模式就是唯一模式**：页面始终读静态快照，没有真正的实时路径。
+1. **核价覆盖 7/8**：巨无霸、不素之霸、麦香鱼、麦香鸡、薄皮焦香V翅、
+   美汁源、苹果片都拿到了 `calculate-price` 官方核价（且与菜单价一致）；
+   培根安格斯厚牛堡只有 10-14 的 `query-meals` 菜单参考价 —— 它在最近两次
+   采集（10-15 15:47 / 22:00）都不在门店菜单上，按规则只能展示菜单参考价
+   并标注采集日期。这是数据源的真实状态，不是没努力补。
+2. **不素之霸是「当日较早时段」的核价**：22:00 的深夜菜单里它不在售，
+   快照沿用 15:47 的核价（时间戳如实保留）。
+3. **Demo 模式就是唯一模式**：页面始终读静态快照，没有真正的实时路径。
    「模式 B（真实 MCP）」目前只是「开发者本地重新生成快照」，
    措辞上我尽量说清楚了，但这不是真正的双模式。
-3. **单门店单渠道**：全部数据来自上海一家门店（1450713）、
+4. **单门店单渠道**：全部数据来自上海一家门店（1450713）、
    orderType=1/beType=1。换城市/门店的差异完全没有被覆盖。
-4. **`query-meal-detail` 脚本支持但页面未使用**：集成文档里列了它，
+5. **`query-meal-detail` 脚本支持但页面未使用**：集成文档里列了它，
    但游戏里没用到，属于「说了但没做」。
-5. **营养表只覆盖常驻单品**：套餐和限定品一律「暂无可靠数据」，
+6. **营养表只覆盖常驻单品**：套餐和限定品一律「暂无可靠数据」，
    8 强能全部精确匹配是因为我**特意挑**了能匹配的 8 款
    —— 这有选择性偏差，不是随机抽样。
+7. **无真人试玩记录**：发布前审计全部由自动化浏览器完成，
+   没有邀请真实用户试玩，「10 秒理解」未经验证。
 
 ## 4. 项目元数据
 
 ```
-git log: 486df42 Stop the snapshot from lying about freshness, coverage and liveness
+git log: 762b521 Add a generated review packet so an outside model can audit this properly
+486df42 Stop the snapshot from lying about freshness, coverage and liveness
 00e7745 McBracket: pick your McDonald's champion through 7 real-data duels
-status : M scripts/fetch_snapshot.py
+status : M docs/screenshots/01-home.png
+ M docs/screenshots/11-picked.png
+ M docs/screenshots/20-champion.png
+ M docs/screenshots/champion-card.png
+ M scripts/fetch_snapshot.py
+ M scripts/make_review_packet.py
+ M scripts/verify.sh
+ M src/App.tsx
+ M src/components/ChampionCard.tsx
+ M src/components/DataReveal.tsx
+ M src/components/HomeView.tsx
+ M src/components/MatchView.tsx
  M src/data/snapshot.json
-?? REVIEW_PACKET.md
-?? scripts/make_review_packet.py
+ M src/engine/championTitle.ts
+ M src/types.ts
+?? docs/audit/
+?? scripts/audit-browser.sh
+?? scripts/audit-demo-dist.sh
+?? scripts/audit-export-evidence.sh
+?? src/data/snapshot.test.ts
+?? tests/
 ```
 
 ## 5. 源码
@@ -129,11 +172,16 @@ status : M scripts/fetch_snapshot.py
 
 ```ts
 export interface Nutrition {
-  energyKcal: number
-  protein: number
-  fat: number
-  carbohydrate: number
-  sodium: number
+  /**
+   * null = the official nutrition table has no value for this field.
+   * It is NOT zero: the table really contains 0s (diet cola, apple
+   * slices), so "absent" and "0" must stay distinguishable on screen.
+   */
+  energyKcal: number | null
+  protein: number | null
+  fat: number | null
+  carbohydrate: number | null
+  sodium: number | null
 }
 
 export type PriceSource = 'calculate-price' | 'query-meals' | 'none'
@@ -149,6 +197,16 @@ export interface SnapshotItem {
   priceSource: PriceSource
   nutrition: Nutrition | null
   nutritionMatch: NutritionMatch
+  /** When this row's price evidence was captured; may predate the latest run. */
+  collectedAt?: string
+  /**
+   * True when the row survived from an earlier run because the item was
+   * not on the menu when the latest run happened.
+   */
+  carried?: boolean
+  /** When the quote was actually verified, if it came from an earlier run. */
+  quoteCollectedAt?: string | null
+  quoteNote?: string | null
   /** Category tag used only for labelling; never used to invent data. */
   category?: string
 }
@@ -156,6 +214,8 @@ export interface SnapshotItem {
 export interface Snapshot {
   schema: string
   mode: 'demo-snapshot' | 'live'
+  /** How the file itself was produced — distinct from `mode` (how the page reads it). */
+  capturedWith?: string
   endpoint: string
   collectedAt: string
   collectedAtTimezone: string
@@ -163,6 +223,8 @@ export interface Snapshot {
   collectedFrom?: string
   collectedTo?: string
   store: { code: string; name: string; city: string; businessStatus?: boolean | null }
+  /** Machine-readable channel; merges are only allowed within one channel. */
+  channel?: { orderType: number; beType: number }
   orderType: string
   toolsUsed: string[]
   notes: string
@@ -187,11 +249,46 @@ export function effectivePriceCents(item: SnapshotItem): number | null {
   return item.quotePriceCents ?? item.menuPriceCents
 }
 
+/**
+ * Where the displayed price came from. An item without a successful
+ * calculate-price run is shown as a menu reference price — never dressed
+ * up as a verified quote.
+ */
+export function priceSourceLabel(item: SnapshotItem): string {
+  if (item.quotePriceCents !== null) return '官方核价'
+  if (item.menuPriceCents !== null) return '菜单参考价'
+  return '暂无可靠数据'
+}
+
+/** Price plus provenance, e.g. "¥25.5 · 官方核价". */
+export function priceCaption(item: SnapshotItem): string {
+  const kind = priceSourceLabel(item)
+  if (kind === '暂无可靠数据') return kind
+  return `${formatYuan(effectivePriceCents(item))} · ${kind}`
+}
+
+/** "2026-10-15 22:00:51" -> "10-15 22:00". */
+export function formatStamp(stamp?: string | null): string {
+  if (!stamp) return '时间未知'
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}:\d{2})/.exec(stamp)
+  return m ? `${m[2]}-${m[3]} ${m[4]}` : stamp
+}
+
+/** When this item's price evidence was captured (a quote may be older). */
+export function priceStamp(item: SnapshotItem): string {
+  return formatStamp(item.quoteCollectedAt ?? item.collectedAt)
+}
+
 export function formatYuan(cents: number | null): string {
   if (cents === null) return '暂无可靠数据'
   // 25.50 -> 25.5, 7.00 -> 7 — money should not look padded.
   const s = (cents / 100).toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
   return `¥${s}`
+}
+
+/** A nutrient value, or an em dash when the official table has no value. */
+export function formatMetric(value: number | null, unit: string): string {
+  return value === null ? '—' : `${value}${unit}`
 }
 
 ```
@@ -347,7 +444,7 @@ export function roundProgress(_matches: readonly Match[], picks: readonly (strin
 
 ```ts
 import type { SnapshotItem } from '../types'
-import { effectivePriceCents, formatYuan } from '../types'
+import { effectivePriceCents } from '../types'
 
 /**
  * Original, tongue-in-cheek titles derived only from things that are actually
@@ -434,10 +531,6 @@ export function championFlair(
   return { badge, quote, facts }
 }
 
-export function priceLabel(item: SnapshotItem): string {
-  return formatYuan(effectivePriceCents(item))
-}
-
 ```
 
 ### `src/App.tsx`
@@ -450,6 +543,7 @@ import {
   buildMatches,
   championCode,
   championRoute,
+  currentMatchIndex,
   eliminatedCodes,
   resolve,
   roundProgress,
@@ -463,8 +557,22 @@ import { ChampionCard } from './components/ChampionCard'
 import { FoodArt } from './components/FoodArt'
 
 const snapshot = snapshotJson as Snapshot
-const ITEMS: SnapshotItem[] = snapshot.items
+/**
+ * Defensive de-duplication by code: a corrupted snapshot must never put the
+ * same food into two bracket slots, and the bracket needs exactly eight
+ * distinct seeds. Anything else renders a data-error panel instead of a
+ * half-broken tournament.
+ */
+const ITEMS: SnapshotItem[] = (() => {
+  const seen = new Set<string>()
+  return snapshot.items.filter((i) => {
+    if (!i || typeof i.code !== 'string' || seen.has(i.code)) return false
+    seen.add(i.code)
+    return true
+  })
+})()
 const BY_CODE = new Map(ITEMS.map((i) => [i.code, i]))
+const ROSTER_OK = ITEMS.length === 8
 const REPO_URL = 'https://github.com/weishaoah/McBracket'
 
 type Stage = 'home' | 'playing' | 'champion'
@@ -474,18 +582,32 @@ export default function App() {
   const [order, setOrder] = useState<string[]>(() => ITEMS.map((i) => i.code))
   const [picks, setPicks] = useState<Array<string | null>>(() => Array(7).fill(null))
   /** Which match is on screen; the reveal keeps it visible until 「下一场」. */
-  const [viewIndex, setViewIndex] = useState(0)
+  const [rawView, setRawView] = useState(0)
   const [busy, setBusy] = useState<string | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
 
-  const matches = useMemo(() => resolve(buildMatches(order), picks), [order, picks])
+  const matches = useMemo(
+    () => (ROSTER_OK ? resolve(buildMatches(order), picks) : []),
+    [order, picks],
+  )
+  /**
+   * The match on screen must be one whose contenders are known. If the
+   * stored index ever points at an empty slot, fall back to the first
+   * playable match — so a click can never be written into the wrong
+   * bracket slot (a wrong advancement).
+   */
+  const viewIndex = useMemo(() => {
+    const m = matches[rawView]
+    if (m && m.slotA && m.slotB) return rawView
+    return currentMatchIndex(matches, picks) ?? rawView
+  }, [matches, picks, rawView])
   const { done } = roundProgress(matches, picks)
   const champion = championCode(picks)
 
   const start = useCallback(() => {
     setOrder(shuffle(ITEMS.map((i) => i.code)))
     setPicks(Array(7).fill(null))
-    setViewIndex(0)
+    setRawView(0)
     setStage('playing')
   }, [])
 
@@ -503,7 +625,7 @@ export default function App() {
 
   const next = useCallback(() => {
     if (viewIndex === 6) setStage('champion')
-    else setViewIndex((v) => Math.min(v + 1, 6))
+    else setRawView((v) => Math.min(v + 1, 6))
   }, [viewIndex])
 
   const nameOf = useCallback(
@@ -571,6 +693,27 @@ export default function App() {
     [matches, picks],
   )
 
+  if (!ROSTER_OK) {
+    return (
+      <div className="app">
+        <div className="topbar">
+          <div className="brand">
+            <span className="brand-mark">McBracket</span>
+            <span className="brand-sub">麦门最强餐品争霸赛</span>
+          </div>
+        </div>
+        <div className="home">
+          <h1 className="hero-title">数据快照不完整</h1>
+          <p className="hero-sub">
+            本期八强需要 8 款不同餐品，当前快照只有 {ITEMS.length} 款
+            （门店 {snapshot.store.name}，采集于 {collectedLabel(snapshot)}）。
+            请重新运行 scripts/fetch_snapshot.py 采集官方数据后再试。
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="app">
       <div className="topbar">
@@ -588,7 +731,7 @@ export default function App() {
         <HomeView snapshot={snapshot} items={ITEMS} onStart={start} />
       )}
 
-      {stage === 'playing' && matches[viewIndex].slotA && matches[viewIndex].slotB && (
+      {stage === 'playing' && matches[viewIndex]?.slotA && matches[viewIndex]?.slotB && (
         <MatchView
           match={matches[viewIndex]}
           a={BY_CODE.get(matches[viewIndex].slotA!)!}
@@ -699,7 +842,7 @@ export default function App() {
 ```ts
 import { FoodArt } from './FoodArt'
 import { DataReveal } from './DataReveal'
-import { priceLabel } from '../engine/championTitle'
+import { priceCaption } from '../types'
 import { ROUND_LABEL, TOTAL_MATCHES, type Match } from '../engine/tournament'
 import type { SnapshotItem } from '../types'
 
@@ -735,7 +878,7 @@ export function MatchView({ match, a, b, done, pick, byCode, onPick, onNext, isL
       >
         <FoodArt code={item.code} size={104} />
         <div className="contender-name">{item.name}</div>
-        <div className="contender-meta">{priceLabel(item)}</div>
+        <div className="contender-meta">{priceCaption(item)}</div>
         <div className="contender-hint">
           {locked ? (isWinner ? '晋级 ✓' : '淘汰') : '点我晋级'}
         </div>
@@ -779,7 +922,13 @@ export function MatchView({ match, a, b, done, pick, byCode, onPick, onNext, isL
 ### `src/components/DataReveal.tsx`
 
 ```ts
-import { effectivePriceCents, formatYuan, type SnapshotItem } from '../types'
+import {
+  effectivePriceCents,
+  formatYuan,
+  priceSourceLabel,
+  priceStamp,
+  type SnapshotItem,
+} from '../types'
 
 interface Props {
   a: SnapshotItem
@@ -799,7 +948,7 @@ interface Row {
 function Row({ row }: { row: Row }) {
   const { av, bv, unit, label } = row
   const fmt = row.fmt ?? ((v: number) => String(v))
-  if (av === null || bv === null) {
+  if (av === null && bv === null) {
     return (
       <div className="reveal-row">
         <div className="val a lower">暂无可靠数据</div>
@@ -808,17 +957,24 @@ function Row({ row }: { row: Row }) {
       </div>
     )
   }
+  // One side may still have a value while the other is missing: show the
+  // value, an em dash for the missing side, and no higher/lower colouring
+  // because a comparison against "unknown" is not a comparison.
+  const cell = (v: number | null, other: number | null, side: 'a' | 'b') => {
+    if (v === null) return <div className={`val ${side} lower`}>—</div>
+    const cls = other === null ? '' : v > other ? 'higher' : v < other ? 'lower' : ''
+    return (
+      <div className={`val ${side} ${cls}`}>
+        {fmt(v)}
+        {unit}
+      </div>
+    )
+  }
   return (
     <div className="reveal-row">
-      <div className={`val a ${av > bv ? 'higher' : av < bv ? 'lower' : ''}`}>
-        {fmt(av)}
-        {unit}
-      </div>
+      {cell(av, bv, 'a')}
       <div className="lbl">{label}</div>
-      <div className={`val b ${bv > av ? 'higher' : bv < av ? 'lower' : ''}`}>
-        {fmt(bv)}
-        {unit}
-      </div>
+      {cell(bv, av, 'b')}
     </div>
   )
 }
@@ -837,6 +993,18 @@ export function DataReveal({ a, b, onNext, isLast }: Props) {
     a.nutritionMatch === 'none' ||
     b.nutritionMatch === 'none'
 
+  // Say which side the price really came from when the two differ, and when
+  // each side's evidence was captured — a carried row can be a day older.
+  const provenance = a.priceSource !== b.priceSource
+    ? ` 价格口径：${a.name}=${priceSourceLabel(a)}，${b.name}=${priceSourceLabel(b)}。`
+    : ''
+  const stamps = a.collectedAt !== b.collectedAt
+    ? ` 采集时间：${a.name} ${priceStamp(a)}，${b.name} ${priceStamp(b)}。`
+    : ''
+  const carried = a.carried || b.carried
+    ? ' 其中标注「沿用」的商品在最近一次采集时未在售，展示的是上次在售时采集的官方数据。'
+    : ''
+
   return (
     <div className="reveal" data-testid="reveal">
       <div className="reveal-title">
@@ -849,6 +1017,9 @@ export function DataReveal({ a, b, onNext, isLast }: Props) {
         以上为同一门店、同一订餐渠道下的官方数据对比；价格优先采用官方核价接口结果，
         菜单价与核价单位不同（元 / 分），已统一换算后比较。
         {missing && ' 部分商品缺少可精确匹配的官方数据，已如实标注，未作推测。'}
+        {provenance}
+        {stamps}
+        {carried}
       </div>
       <div className="next-row">
         <button className="btn btn-primary" onClick={onNext} data-testid="next">
@@ -865,7 +1036,7 @@ export function DataReveal({ a, b, onNext, isLast }: Props) {
 
 ```ts
 import { FoodArt } from './FoodArt'
-import { priceLabel } from '../engine/championTitle'
+import { priceCaption } from '../types'
 import { ROUND_LABEL, type Round } from '../engine/tournament'
 import { collectedLabel, type Snapshot, type SnapshotItem } from '../types'
 
@@ -896,7 +1067,7 @@ export function ChampionCard({ snapshot, champion, badge, quote, route, repoUrl 
           <h2 className="card-champ-name">{champion.name}</h2>
           <div className="card-badge">{badge}</div>
           <div style={{ marginTop: 10, color: '#ffc72c', fontSize: 18, fontWeight: 700 }}>
-            我的麦门冠军 · {priceLabel(champion)}
+            我的麦门冠军 · {priceCaption(champion)}
           </div>
         </div>
       </div>
@@ -910,12 +1081,6 @@ export function ChampionCard({ snapshot, champion, badge, quote, route, repoUrl 
             <div className="card-result-text">击败 {r.opponent}</div>
           </div>
         ))}
-        {route.length < 3 && (
-          <div className="card-result-item">
-            <div className="card-result-round">战绩</div>
-            <div className="card-result-text">7 场全胜登顶</div>
-          </div>
-        )}
       </div>
 
       <div className="card-foot">
@@ -927,7 +1092,8 @@ export function ChampionCard({ snapshot, champion, badge, quote, route, repoUrl 
           {snapshot.mode === 'demo-snapshot' ? '（官方数据快照，非实时）' : ''}
         </div>
         <div>
-          营养数据仅在官方营养表精确匹配时展示，未匹配一律标注为暂无可靠数据。本作品为独立开发，非麦当劳官方产品。
+          价格优先采用官方核价，未核价商品仅展示菜单参考价；营养数据仅在官方营养表
+          精确匹配时展示，未匹配一律标注为暂无可靠数据。本作品为独立开发，非麦当劳官方产品。
         </div>
         <div className="repo">{repoUrl}</div>
       </div>
@@ -941,8 +1107,7 @@ export function ChampionCard({ snapshot, champion, badge, quote, route, repoUrl 
 
 ```ts
 import { FoodArt } from './FoodArt'
-import { priceLabel } from '../engine/championTitle'
-import { collectedLabel, type Snapshot, type SnapshotItem } from '../types'
+import { collectedLabel, priceCaption, type Snapshot, type SnapshotItem } from '../types'
 
 interface Props {
   snapshot: Snapshot
@@ -987,7 +1152,7 @@ export function HomeView({ snapshot, items, onStart }: Props) {
             <div className="roster-item" key={it.code}>
               <FoodArt code={it.code} size={54} />
               <div className="roster-name">{it.name}</div>
-              <div className="roster-price">{priceLabel(it)}</div>
+              <div className="roster-price">{priceCaption(it)}</div>
             </div>
           ))}
         </div>
@@ -1003,6 +1168,9 @@ export function HomeView({ snapshot, items, onStart }: Props) {
         <div>
           <b>采集时间</b>：{collectedLabel(snapshot)}
           {snapshot.mode === 'demo-snapshot' ? '（官方数据快照，非实时）' : '（实时查询）'}
+        </div>
+        <div>
+          本作品为独立开发项目，与麦当劳官方无关；餐品信息、价格及供应状态以麦当劳官方渠道的实时结果为准。
         </div>
       </div>
     </div>
@@ -1183,6 +1351,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -1198,8 +1367,24 @@ WRITE_TOOLS = {
 
 # Eight seeds chosen for spread across price band and category. Anything not
 # present in the fetched menu, or without an exact nutrition-table match, is
-# dropped rather than invented.
+# dropped rather than invented. The roster is fixed at these eight codes: a
+# merge must never grow or shrink it silently.
 SEED_CODES = ['1100', '511781', '4648', '1600', '1450', '520445', '2430', '6102']
+SEED_SET = set(SEED_CODES)
+
+# The one channel this snapshot is allowed to describe. Prices from a
+# different store or a different ordering channel are not comparable with
+# these, so a previous snapshot is only merged when it matches exactly.
+CHANNEL = {'orderType': 1, 'beType': 1}
+CHANNEL_LABEL = '堂食/到店取餐渠道（orderType=1, beType=1）'
+
+# A carried-over row older than this is dropped rather than shown: a week-old
+# price is not "current data" and displaying it as such would mislead.
+STALE_AFTER_DAYS = 7
+
+# Nutrient columns kept from the official table, with their natural types.
+NUTRIENT_FIELDS = (('energyKcal', int), ('protein', float), ('fat', float),
+                   ('carbohydrate', float), ('sodium', int))
 
 
 # --------------------------------------------------------------------------- #
@@ -1345,6 +1530,16 @@ def yuan_to_cents(value) -> int | None:
         return None
 
 
+def to_int_cents(value) -> int | None:
+    """calculate-price is documented as integer cents; tolerate numeric strings."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    s = str(value).strip()
+    return int(s) if s.isdigit() else None
+
+
 def as_records(data, *keys):
     """`data` is sometimes a bare list, sometimes {"stores": [...]}."""
     if isinstance(data, list):
@@ -1360,37 +1555,78 @@ def as_records(data, *keys):
     return []
 
 
+def _to_number(value, cast):
+    """Missing means missing.
+
+    A real 0 in the official table (diet cola 0 kcal, apple slices 0 mg
+    sodium) must stay 0; only an absent or empty cell becomes None so the UI
+    can render 「暂无可靠数据」instead of a fabricated zero.
+    """
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    try:
+        return cast(s)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_header(line: str) -> list[str] | None:
+    """`[160]{productName,nutritionDescription,...,calcium}:` -> column names."""
+    m = re.search(r'\{([^}]*)\}', line)
+    if not m:
+        return None
+    cols = [c.strip() for c in m.group(1).split(',') if c.strip()]
+    return cols or None
+
+
 def parse_nutrition_csv(payload) -> dict[str, dict]:
+    """Official nutrition table -> {productName: {field: number | None}}.
+
+    The table arrives as a header line plus CSV rows inside a JSON string.
+    Columns are located from the header when present, so a reordered or
+    extended table cannot silently shift values into the wrong field, and a
+    row whose field count does not match the header is skipped instead of
+    being mis-parsed. Absent cells stay None — never 0.
+    """
+    if isinstance(payload, dict):
+        inner = payload.get('data')
+        payload = inner if inner is not None else payload
     if isinstance(payload, list):
-        rows = payload
+        rows = [r for r in payload if isinstance(r, dict)]
+        header = None
     elif isinstance(payload, str):
+        header = None
         rows = []
-        for line in payload.split('\n')[1:]:
+        for line in payload.split('\n'):
             line = line.strip()
-            if not line or line.startswith('['):
+            if not line:
+                continue
+            if line.startswith('['):
+                header = _parse_header(line)
                 continue
             parts = [p.strip() for p in line.split(',')]
-            if len(parts) >= 9:
+            if header and len(parts) == len(header):
+                rows.append(dict(zip(header, parts)))
+            elif not header and len(parts) >= 9:
                 rows.append({'productName': parts[0], 'energyKcal': parts[3],
                              'protein': parts[4], 'fat': parts[5],
                              'carbohydrate': parts[6], 'sodium': parts[7]})
+            else:
+                print(f'  ! nutrition row skipped (field count mismatch): {line[:60]}',
+                      file=sys.stderr)
     else:
         rows = []
-    out = {}
+        header = None
+
+    out: dict[str, dict] = {}
     for r in rows:
         name = r.get('productName')
         if not name or name in out:
             continue
-        try:
-            out[name] = {
-                'energyKcal': int(r.get('energyKcal') or 0),
-                'protein': float(r.get('protein') or 0),
-                'fat': float(r.get('fat') or 0),
-                'carbohydrate': float(r.get('carbohydrate') or 0),
-                'sodium': int(r.get('sodium') or 0),
-            }
-        except Exception:
-            continue
+        out[name] = {field: _to_number(r.get(field), cast) for field, cast in NUTRIENT_FIELDS}
     return out
 
 
@@ -1436,10 +1672,7 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
 
     nut_obj = unwrap(mcp.call('list-nutrition-foods', {}))
     tools_used.append('list-nutrition-foods')
-    nutrition = parse_nutrition_csv((nut_obj.get('data') or {}) if isinstance(nut_obj.get('data'), dict)
-                                    else nut_obj.get('data')) if business_ok(nut_obj) else {}
-    if not nutrition:
-        nutrition = parse_nutrition_csv(nut_obj.get('data'))
+    nutrition = parse_nutrition_csv(nut_obj.get('data')) if business_ok(nut_obj) else {}
 
     items = []
     dropped: dict[str, str] = {}
@@ -1470,7 +1703,7 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
                     pl = d.get('productList') or []
                     if pl:
                         cand = pl[0].get('price')
-                quote_cents = int(cand) if isinstance(cand, (int, float)) else None
+                quote_cents = to_int_cents(cand)
                 quote_ok = quote_cents is not None and quote_cents > 0
                 if not quote_ok:
                     quote_note = 'calculate-price returned no positive total'
@@ -1490,6 +1723,9 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
             'nutrition': nut,          # None => render as "暂无可靠数据"
             'nutritionMatch': 'exact' if nut else 'none',
             'collectedAt': (official or {}).get('formatted') or (official or {}).get('datetime'),
+            'carried': False,          # set True by the merge when a row survives
+                                        # from an earlier run because today's
+                                        # menu did not carry the item
         })
 
     snapshot = {
@@ -1505,16 +1741,22 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
         'collectedAtTimezone': (official or {}).get('timezone', 'GMT+08:00'),
         'store': {'code': code, 'name': name,
                   'city': city, 'businessStatus': chosen.get('businessStatus')},
+        # Machine-readable channel, checked before any cross-run merge so a
+        # snapshot from another store or channel can never bleed prices in.
+        'channel': dict(CHANNEL),
         # Every figure below comes from this one channel, so prices are only
         # ever compared within identical store + order-type conditions.
-        'orderType': '堂食/到店取餐渠道（orderType=1, beType=1）',
+        'orderType': CHANNEL_LABEL,
         'notes': (
             '菜单价格来自 query-meals（单位：元，字符串）；核价来自 calculate-price'
             '（单位：分，整数）。两者单位不同，已统一换算为分后比较。'
-            '营养数据来自 list-nutrition-foods，仅采用商品名精确匹配项，'
-            '未匹配一律显示「暂无可靠数据」。'
+            '营养数据来自 list-nutrition-foods，仅采用商品名精确匹配项；'
+            '官方营养表中缺失的字段显示 null（页面渲染为「暂无可靠数据」），'
+            '不会被当成 0。'
             '麦当劳菜单按营业时段切换（如早餐时段不供应汉堡），'
-            '因此快照可能是分批采集的，每条数据保留各自的采集时间。'
+            '因此快照可能是分批采集的：每条数据保留各自的采集时间，'
+            '合并时只接受同一门店、同一渠道的历史数据，超过 '
+            f'{STALE_AFTER_DAYS} 天的旧行会被丢弃而不是继续展示。'
         ),
         'toolsUsed': sorted(set(tools_used)),
         'items': items,
@@ -1523,7 +1765,9 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
     # ---- merge with the previous snapshot ---------------------------------- #
     # The menu is daypart-dependent (breakfast has no burgers), so a single run
     # cannot always see all eight seeds. Merging keeps whatever a previous run
-    # captured instead of silently downgrading the snapshot to one item.
+    # captured instead of silently downgrading the snapshot to one item —
+    # but only when the previous file describes the SAME store and channel,
+    # because prices are not comparable across either.
     prev = None
     if out_path.exists():
         try:
@@ -1531,7 +1775,14 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
         except (OSError, ValueError):
             prev = None
 
-    merged, carried, refreshed = merge_items(items, prev)
+    merge_notes: list[str] = []
+    if prev and not compatible_previous(prev, code, CHANNEL, CHANNEL_LABEL):
+        merge_notes.append('previous snapshot ignored: different store or channel')
+        prev = None
+
+    now_stamp = (official or {}).get('formatted') or (official or {}).get('datetime')
+    merged, carried, refreshed, merge_notes = merge_items(
+        items, prev, now_stamp, merge_notes)
     snapshot['items'] = merged
 
     # When rows come from more than one run, say so: a single "collectedAt"
@@ -1544,7 +1795,7 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
     # happened. After several merges it is not the coverage of the file as a
     # whole, and reading it as such would be misleading.
     snapshot['lastRun'] = {
-        'at': (official or {}).get('formatted') or (official or {}).get('datetime'),
+        'at': now_stamp,
         'requested': len(SEED_CODES),
         'freshThisRun': len(items),
         'carriedFromPrevious': len(carried),
@@ -1553,6 +1804,8 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
     }
     if dropped:
         snapshot['lastRun']['droppedThisRun'] = dropped
+    if merge_notes:
+        snapshot['lastRun']['mergeNotes'] = merge_notes
     if prev:
         snapshot['previousCollectedAt'] = prev.get('collectedAt')
 
@@ -1567,68 +1820,125 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
     for it in merged:
         nut = it['nutrition']
         tag = ' ' if it['code'] in {i['code'] for i in items} else '~'
+        kcal = nut.get('energyKcal') if nut else None
         print(f" {tag}{it['code']:>10} {it['name']:<14} "
               f"menu={'-' if it['menuPriceCents'] is None else it['menuPriceCents']/100:>6} "
               f"quote={'-' if it['quotePriceCents'] is None else it['quotePriceCents']/100:>6} "
-              f"kcal={'-' if not nut else nut['energyKcal']:>4} match={it['nutritionMatch']}")
+              f"kcal={'-' if kcal is None else kcal:>4} match={it['nutritionMatch']}"
+              f"{' carried' if it.get('carried') else ''}")
     for sku, why in dropped.items():
         print(f"  - {sku}: {why}")
     print('  (~ = carried over from the previous snapshot)')
+    for note in merge_notes:
+        print(f'  * {note}')
     print(f'written: {out_path}')
     return snapshot
 
 
-def merge_items(fresh: list[dict], prev: dict | None):
-    """Keep the best evidence per seed code across runs.
+def compatible_previous(prev: dict | None, store_code: str, channel: dict,
+                        channel_label: str) -> bool:
+    """May this previous snapshot be merged into the current run?
 
-    A fresh row wins when it carries more information than the previous one
-    (a verified quote beats a menu-only price). Otherwise the previous row is
-    carried over, so a breakfast-hour run never erases a lunch-hour capture.
-    Returns (merged, carried_codes, refreshed_codes).
+    Prices are only comparable inside one store and one ordering channel, so
+    a file from a different store — or a different channel — must be ignored
+    wholesale rather than merged row by row. Files written before the
+    `channel` field existed fall back to comparing the human-readable
+    `orderType` label.
     """
-    prev_rows = {r['code']: r for r in ((prev or {}).get('items') or [])}
-    fresh_codes = {r['code'] for r in fresh}
+    if not isinstance(prev, dict) or not prev.get('items'):
+        return False
+    if (prev.get('store') or {}).get('code') != store_code:
+        return False
+    prev_channel = prev.get('channel')
+    if prev_channel is None:
+        return prev.get('orderType') == channel_label
+    return prev_channel == channel
 
+
+def _age_days(stamp, now_stamp) -> float | None:
+    """Age of a `YYYY-MM-DD HH:MM:SS` stamp in days, or None if unparseable."""
+    for candidate in (stamp, now_stamp):
+        if not isinstance(candidate, str):
+            return None
+    try:
+        then = datetime.strptime(stamp, '%Y-%m-%d %H:%M:%S')
+        now = datetime.strptime(now_stamp, '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return None
+    return (now - then).total_seconds() / 86400.0
+
+
+def merge_items(fresh: list[dict], prev: dict | None, now_stamp,
+                notes: list[str] | None = None,
+                max_age_days: int = STALE_AFTER_DAYS):
+    """Merge a fresh run into the previous snapshot, field-wise.
+
+    Rules, in order:
+
+    - An item the fresh run could not see at all (absent from today's menu)
+      is carried over unchanged, keeping the timestamp it was captured at.
+      Rows older than `max_age_days` are dropped instead: a week-old price is
+      not current data.
+    - An item the fresh run did see: today's observation wins for every
+      field it actually carries. The only things inherited from an older row
+      are (a) a verified quote that today's run failed to obtain and (b) a
+      nutrition-table match, which is global reference data rather than
+      store- or time-specific. Both keep the older row's timestamp so the
+      page can say when the evidence is really from.
+    - Rows outside the eight seeds are never carried: the roster is fixed.
+
+    Returns (merged, carried_codes, refreshed_codes, notes).
+    """
+    notes = list(notes or [])
+    prev_rows = {r['code']: r for r in ((prev or {}).get('items') or [])
+                 if isinstance(r, dict) and r.get('code')}
+    extra = sorted(set(prev_rows) - SEED_SET)
+    if extra:
+        notes.append(f'ignored {len(extra)} previous row(s) outside the eight seeds: {extra}')
+    prev_rows = {c: r for c, r in prev_rows.items() if c in SEED_SET}
+
+    fresh_by_code = {r['code']: r for r in fresh}
     merged: list[dict] = []
     carried: list[str] = []
     refreshed: list[str] = []
 
-    for row in fresh:
-        old = prev_rows.get(row['code'])
-        if old and _score(old) > _score(row):
+    for code in SEED_CODES:  # fixed roster order
+        row = fresh_by_code.get(code)
+        old = prev_rows.get(code)
+
+        if row is None:
+            if old is None:
+                continue
+            age = _age_days(old.get('collectedAt'), now_stamp)
+            if age is None or age > max_age_days:
+                notes.append(f'{code} dropped: last captured {old.get("collectedAt")}, '
+                             f'older than {max_age_days} days')
+                continue
             kept = dict(old)
-            kept.setdefault('collectedAt', (prev or {}).get('collectedAt'))
+            kept['carried'] = True
             merged.append(kept)
-            carried.append(row['code'])
-        else:
-            merged.append(row)
-            if old:
-                refreshed.append(row['code'])
-
-    prev_at = (prev or {}).get('collectedAt')
-    for code, row in prev_rows.items():
-        if code not in fresh_codes:
-            row = dict(row)
-            # A carried row keeps the timestamp it was actually captured at, so
-            # the snapshot never implies it is fresher than it is.
-            row.setdefault('collectedAt', prev_at)
-            merged.append(row)
             carried.append(code)
+            continue
 
-    merged.sort(key=lambda r: SEED_CODES.index(r['code']) if r['code'] in SEED_CODES else 99)
-    return merged, carried, refreshed
+        if old is None:
+            merged.append(row)
+            continue
 
+        out = dict(row)
+        if old.get('quotePriceCents') and not out.get('quotePriceCents'):
+            # Today's quote failed; keep the older *verified* quote, but say
+            # which run verified it instead of presenting it as today's price.
+            out['quotePriceCents'] = old['quotePriceCents']
+            out['priceSource'] = 'calculate-price'
+            out['quoteCollectedAt'] = old.get('collectedAt')
+            out['quoteNote'] = f"verified in an earlier run ({old.get('collectedAt')})"
+        if not out.get('nutrition') and old.get('nutrition'):
+            out['nutrition'] = old['nutrition']
+            out['nutritionMatch'] = old.get('nutritionMatch', 'exact')
+        merged.append(out)
+        refreshed.append(code)
 
-def _score(row: dict) -> int:
-    """Evidence ranking: verified quote > menu price > anything else."""
-    s = 0
-    if row.get('quotePriceCents'):
-        s += 4
-    if row.get('menuPriceCents'):
-        s += 2
-    if row.get('nutrition'):
-        s += 1
-    return s
+    return merged, carried, refreshed, notes
 
 
 def main():
@@ -1647,6 +1957,537 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+```
+
+### `src/data/snapshot.test.ts`
+
+```ts
+import { describe, expect, it } from 'vitest'
+import snapshotJson from './snapshot.json'
+import { ART_BY_CODE } from './art'
+import {
+  collectedLabel,
+  effectivePriceCents,
+  formatMetric,
+  formatStamp,
+  formatYuan,
+  priceCaption,
+  priceSourceLabel,
+  type Snapshot,
+  type SnapshotItem,
+} from '../types'
+
+const snapshot = snapshotJson as unknown as Snapshot
+const items = snapshot.items
+
+/**
+ * These are the values the official nutrition table returned on
+ * 2026-10-15 (official now-time-info clock, via list-nutrition-foods).
+ * They are pinned on purpose: if a future refresh changes them, this test
+ * fails and the numbers must be updated deliberately — nobody can quietly
+ * hand-edit a calorie count into the demo.
+ */
+const OFFICIAL_NUTRITION: Record<string, SnapshotItem['nutrition']> = {
+  1100: { energyKcal: 513, protein: 27, fat: 26, carbohydrate: 42, sodium: 961 },
+  511781: { energyKcal: 707, protein: 34, fat: 44, carbohydrate: 43, sodium: 1037 },
+  4648: { energyKcal: 493, protein: 28, fat: 27, carbohydrate: 34, sodium: 1012 },
+  1600: { energyKcal: 325, protein: 16, fat: 13, carbohydrate: 35, sodium: 556 },
+  1450: { energyKcal: 369, protein: 15, fat: 17, carbohydrate: 39, sodium: 731 },
+  520445: { energyKcal: 192, protein: 17, fat: 11, carbohydrate: 6, sodium: 594 },
+  2430: { energyKcal: 165, protein: 0, fat: 0, carbohydrate: 41, sodium: 53 },
+  6102: { energyKcal: 32, protein: 0, fat: 0, carbohydrate: 7, sodium: 0 },
+}
+
+describe('snapshot integrity', () => {
+  it('carries exactly eight distinct contenders', () => {
+    expect(items).toHaveLength(8)
+    expect(new Set(items.map((i) => i.code)).size).toBe(8)
+  })
+
+  it('has an illustration for every contender', () => {
+    for (const it of items) {
+      expect(ART_BY_CODE[it.code], `no art for ${it.code}`).toBeDefined()
+    }
+  })
+
+  it('names every contender', () => {
+    for (const it of items) {
+      expect(it.name.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('never shows a price it cannot source', () => {
+    for (const it of items) {
+      if (it.priceSource === 'calculate-price') {
+        expect(it.quotePriceCents, it.code).not.toBeNull()
+      }
+      if (it.priceSource === 'query-meals') {
+        expect(it.menuPriceCents, it.code).not.toBeNull()
+        expect(it.quotePriceCents, it.code).toBeNull()
+      }
+      expect(effectivePriceCents(it), it.code).not.toBeNull()
+    }
+  });
+
+  it('shows the quote only when it agrees with the menu price', () => {
+    for (const it of items) {
+      if (it.quotePriceCents !== null && it.menuPriceCents !== null) {
+        expect(it.quotePriceCents, it.code).toBe(it.menuPriceCents)
+      }
+    }
+  })
+
+  it('pins the official nutrition values', () => {
+    for (const it of items) {
+      expect(it.nutritionMatch, it.code).toBe('exact')
+      expect(it.nutrition, it.code).toEqual(OFFICIAL_NUTRITION[it.code])
+    }
+  })
+
+  it('labels itself as a snapshot, not a live query', () => {
+    expect(snapshot.mode).toBe('demo-snapshot')
+    expect(snapshot.capturedWith).toBe('official-mcp')
+  })
+
+  it('keeps a per-row capture timestamp inside the reported window', () => {
+    const newest = snapshot.collectedTo ?? snapshot.collectedAt
+    for (const it of items) {
+      expect(it.collectedAt, it.code).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)
+      expect(it.collectedAt! <= newest, it.code).toBe(true)
+    }
+    // A carried row is one the latest run did not see on the menu, so its
+    // stamp must be strictly older than the newest row in the file.
+    for (const it of items.filter((i) => i.carried)) {
+      expect(it.collectedAt! < newest, it.code).toBe(true)
+    }
+  })
+})
+
+describe('price display', () => {
+  const quoted: SnapshotItem = { ...items[0], quotePriceCents: 2550, menuPriceCents: 2550, priceSource: 'calculate-price' }
+  const menuOnly: SnapshotItem = { ...items[0], quotePriceCents: null, menuPriceCents: 3450, priceSource: 'query-meals' }
+  const priceless: SnapshotItem = { ...items[0], quotePriceCents: null, menuPriceCents: null, priceSource: 'none' }
+
+  it('labels a verified quote as 官方核价', () => {
+    expect(priceSourceLabel(quoted)).toBe('官方核价')
+    expect(priceCaption(quoted)).toBe('¥25.5 · 官方核价')
+  })
+
+  it('labels an unverified item as 菜单参考价', () => {
+    expect(priceSourceLabel(menuOnly)).toBe('菜单参考价')
+    expect(priceCaption(menuOnly)).toBe('¥34.5 · 菜单参考价')
+  })
+
+  it('never invents a price', () => {
+    expect(priceSourceLabel(priceless)).toBe('暂无可靠数据')
+    expect(priceCaption(priceless)).toBe('暂无可靠数据')
+    expect(formatYuan(null)).toBe('暂无可靠数据')
+  })
+})
+
+describe('formatting', () => {
+  it('renders cents as unpadded yuan', () => {
+    expect(formatYuan(2550)).toBe('¥25.5')
+    expect(formatYuan(700)).toBe('¥7')
+    expect(formatYuan(1300)).toBe('¥13')
+  })
+
+  it('renders a missing nutrient as an em dash, not a zero', () => {
+    expect(formatMetric(null, ' mg')).toBe('—')
+    expect(formatMetric(961, ' mg')).toBe('961 mg')
+  })
+
+  it('renders official timestamps compactly', () => {
+    expect(formatStamp('2026-10-15 22:00:51')).toBe('10-15 22:00')
+    expect(formatStamp('2026-10-14 11:26:56')).toBe('10-14 11:26')
+    expect(formatStamp(null)).toBe('时间未知')
+    expect(formatStamp('not-a-stamp')).toBe('not-a-stamp')
+  })
+
+  it('shows a capture window when rows come from several runs', () => {
+    expect(collectedLabel(snapshot)).toContain('~')
+    const single = { ...snapshot, collectedFrom: undefined, collectedTo: undefined }
+    expect(collectedLabel(single)).toBe(`${snapshot.collectedAt} ${snapshot.collectedAtTimezone}`)
+  })
+})
+
+```
+
+### `tests/test_data_pipeline.py`
+
+```python
+"""Regression tests for the McBracket data pipeline.
+
+These guard the two traps that would silently corrupt the public snapshot:
+
+1.  A missing nutrition cell must stay missing (None) — never become a
+    fabricated 0. The official table really does contain 0s (diet cola,
+    apple slices), so "0" and "absent" must remain distinguishable.
+2.  Cross-run merging must never mix prices from a different store or a
+    different ordering channel, and an old price must not silently
+    override a newer observation.
+
+Run from the repository root:
+
+    python -m unittest discover -s tests -v
+"""
+
+import sys
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'scripts'))
+
+import fetch_snapshot as fs  # noqa: E402
+
+
+def row(code, **over):
+    """A minimal snapshot row, as the fetcher writes it."""
+    base = {
+        'code': code,
+        'name': f'餐品{code}',
+        'menuPriceCents': 2000,
+        'quotePriceCents': 2000,
+        'quoteNote': None,
+        'priceSource': 'calculate-price',
+        'nutrition': {'energyKcal': 400, 'protein': 20.0, 'fat': 10.0,
+                      'carbohydrate': 40.0, 'sodium': 800},
+        'nutritionMatch': 'exact',
+        'collectedAt': '2026-10-15 12:00:00',
+        'carried': False,
+    }
+    base.update(over)
+    return base
+
+
+class NutritionParsing(unittest.TestCase):
+    TABLE = (
+        '[8]{productName,nutritionDescription,energyKj,energyKcal,'
+        'protein,fat,carbohydrate,sodium,calcium}:\n'
+        '巨无霸,null,2146,513,27,26,42,961,171\n'
+        '苹果片,null,133,32,0,0,7,0,18\n'
+        '可乐中杯,null,616,147,0,0,36,0,10\n'
+    )
+
+    def test_real_zero_stays_zero(self):
+        out = fs.parse_nutrition_csv(self.TABLE)
+        # Apple slices genuinely carry 0 protein / 0 fat / 0 sodium in the
+        # official table — those must not be turned into "missing".
+        self.assertEqual(out['苹果片']['sodium'], 0)
+        self.assertEqual(out['苹果片']['protein'], 0.0)
+        self.assertEqual(out['苹果片']['energyKcal'], 32)
+        self.assertEqual(out['巨无霸']['sodium'], 961)
+
+    def test_absent_cell_becomes_none_not_zero(self):
+        out = fs.parse_nutrition_csv(
+            '[2]{productName,nutritionDescription,energyKj,energyKcal,'
+            'protein,fat,carbohydrate,sodium,calcium}:\n'
+            '神秘餐,null,100,100,5,,10,20,30\n')
+        self.assertEqual(out['神秘餐']['protein'], 5.0)
+        self.assertIsNone(out['神秘餐']['fat'])  # empty cell, NOT 0.0
+
+    def test_fully_empty_row_is_all_none(self):
+        out = fs.parse_nutrition_csv(
+            '[1]{productName,nutritionDescription,energyKj,energyKcal,'
+            'protein,fat,carbohydrate,sodium,calcium}:\n'
+            '空白餐,null,,,,,,,\n')
+        self.assertEqual(set(out['空白餐'].values()), {None})
+
+    def test_columns_are_located_from_the_header(self):
+        # Same numbers, reordered columns: values must follow their names.
+        out = fs.parse_nutrition_csv(
+            '[1]{sodium,productName,energyKcal}:\n'
+            '961,巨无霸,513\n')
+        self.assertEqual(out['巨无霸']['energyKcal'], 513)
+        self.assertEqual(out['巨无霸']['sodium'], 961)
+        # Columns the header did not mention stay missing, not zero.
+        self.assertIsNone(out['巨无霸']['protein'])
+
+    def test_row_with_wrong_field_count_is_skipped(self):
+        out = fs.parse_nutrition_csv(
+            '[1]{productName,energyKcal,sodium}:\n'
+            '短行,100\n'
+            '正常行,200,50\n')
+        self.assertNotIn('短行', out)
+        self.assertEqual(out['正常行']['sodium'], 50)
+
+    def test_list_payload_and_duplicates(self):
+        out = fs.parse_nutrition_csv([
+            {'productName': '甲', 'energyKcal': '100', 'sodium': '5'},
+            {'productName': '甲', 'energyKcal': '999', 'sodium': '5'},
+        ])
+        self.assertEqual(out['甲']['energyKcal'], 100)  # first wins
+
+
+class Money(unittest.TestCase):
+    def test_yuan_strings_to_cents(self):
+        self.assertEqual(fs.yuan_to_cents('25.5'), 2550)
+        self.assertEqual(fs.yuan_to_cents('¥13'), 1300)
+        self.assertEqual(fs.yuan_to_cents(13), 1300)
+        self.assertIsNone(fs.yuan_to_cents('abc'))
+        self.assertIsNone(fs.yuan_to_cents(None))
+
+    def test_quote_cents_tolerate_numeric_strings(self):
+        self.assertEqual(fs.to_int_cents(2550), 2550)
+        self.assertEqual(fs.to_int_cents('2550'), 2550)
+        self.assertIsNone(fs.to_int_cents('25.5'))
+        self.assertIsNone(fs.to_int_cents(True))
+
+
+class MergeCompatibility(unittest.TestCase):
+    CHANNEL = {'orderType': 1, 'beType': 1}
+    LABEL = '堂食/到店取餐渠道（orderType=1, beType=1）'
+
+    def prev(self, **over):
+        base = {'items': [row('1100')], 'store': {'code': '1450713'},
+                'channel': dict(self.CHANNEL), 'orderType': self.LABEL}
+        base.update(over)
+        return base
+
+    def test_same_store_and_channel_merges(self):
+        self.assertTrue(fs.compatible_previous(
+            self.prev(), '1450713', self.CHANNEL, self.LABEL))
+
+    def test_different_store_never_merges(self):
+        prev = self.prev()
+        prev['store']['code'] = '9999999'
+        self.assertFalse(fs.compatible_previous(
+            prev, '1450713', self.CHANNEL, self.LABEL))
+
+    def test_different_channel_never_merges(self):
+        prev = self.prev()
+        prev['channel'] = {'orderType': 2, 'beType': 2}
+        self.assertFalse(fs.compatible_previous(
+            prev, '1450713', self.CHANNEL, self.LABEL))
+
+    def test_legacy_file_without_channel_field(self):
+        legacy = self.prev()
+        del legacy['channel']
+        self.assertTrue(fs.compatible_previous(
+            legacy, '1450713', self.CHANNEL, self.LABEL))
+        legacy['orderType'] = '外送渠道'
+        self.assertFalse(fs.compatible_previous(
+            legacy, '1450713', self.CHANNEL, self.LABEL))
+
+    def test_empty_previous_is_incompatible(self):
+        self.assertFalse(fs.compatible_previous(None, '1450713', self.CHANNEL, self.LABEL))
+        self.assertFalse(fs.compatible_previous({}, '1450713', self.CHANNEL, self.LABEL))
+
+
+class MergeRules(unittest.TestCase):
+    NOW = '2026-10-15 21:00:00'
+
+    def test_no_previous_keeps_only_fresh_rows_in_seed_order(self):
+        fresh = [row('6102'), row('1100')]
+        merged, carried, refreshed, notes = fs.merge_items(fresh, None, self.NOW, [])
+        self.assertEqual([r['code'] for r in merged], ['1100', '6102'])
+        self.assertEqual(carried, [])
+        self.assertEqual(refreshed, [])
+        self.assertEqual(notes, [])
+
+    def test_item_absent_today_is_carried_with_its_own_timestamp(self):
+        old = row('511781', collectedAt='2026-10-14 11:26:56',
+                  quotePriceCents=None, priceSource='query-meals')
+        merged, carried, refreshed, notes = fs.merge_items(
+            [row('1100')], {'items': [old]}, self.NOW, [])
+        by_code = {r['code']: r for r in merged}
+        self.assertEqual(carried, ['511781'])
+        self.assertTrue(by_code['511781']['carried'])
+        self.assertEqual(by_code['511781']['collectedAt'], '2026-10-14 11:26:56')
+        self.assertEqual(notes, [])
+
+    def test_stale_row_is_dropped_not_shown(self):
+        old = row('511781', collectedAt='2026-10-01 09:00:00')
+        merged, carried, refreshed, notes = fs.merge_items(
+            [row('1100')], {'items': [old]}, self.NOW, [])
+        self.assertNotIn('511781', {r['code'] for r in merged})
+        self.assertTrue(any('511781' in n and 'older than' in n for n in notes))
+
+    def test_new_quote_beats_old_quote(self):
+        old = row('1100', quotePriceCents=2550, menuPriceCents=2550)
+        fresh = [row('1100', quotePriceCents=2250, menuPriceCents=2250,
+                     collectedAt=self.NOW)]
+        merged, _, _, _ = fs.merge_items(fresh, {'items': [old]}, self.NOW, [])
+        self.assertEqual(merged[0]['quotePriceCents'], 2250)
+
+    def test_old_quote_is_inherited_only_when_todays_quote_failed(self):
+        old = row('1100', quotePriceCents=2550, collectedAt='2026-10-14 11:26:56')
+        fresh = [row('1100', quotePriceCents=None, priceSource='query-meals',
+                     quoteNote='calculate-price transport error: boom',
+                     collectedAt=self.NOW)]
+        merged, _, refreshed, _ = fs.merge_items(fresh, {'items': [old]}, self.NOW, [])
+        out = merged[0]
+        self.assertEqual(out['quotePriceCents'], 2550)
+        self.assertEqual(out['priceSource'], 'calculate-price')
+        self.assertEqual(out['quoteCollectedAt'], '2026-10-14 11:26:56')
+        self.assertIn('earlier run', out['quoteNote'])
+        # Everything else still comes from today's observation.
+        self.assertEqual(out['collectedAt'], self.NOW)
+        self.assertIn('1100', refreshed)
+
+    def test_nutrition_is_inherited_when_todays_match_failed(self):
+        old = row('1100')
+        fresh = [row('1100', nutrition=None, nutritionMatch='none')]
+        merged, _, _, _ = fs.merge_items(fresh, {'items': [old]}, self.NOW, [])
+        self.assertEqual(merged[0]['nutrition']['energyKcal'], 400)
+        self.assertEqual(merged[0]['nutritionMatch'], 'exact')
+
+    def test_rows_outside_the_eight_seeds_are_never_carried(self):
+        old = row('9999')
+        merged, _, _, notes = fs.merge_items(
+            [row('1100')], {'items': [old]}, self.NOW, [])
+        self.assertEqual([r['code'] for r in merged], ['1100'])
+        self.assertTrue(any('outside the eight seeds' in n for n in notes))
+
+    def test_undated_row_is_treated_as_stale(self):
+        old = row('511781', collectedAt=None)
+        merged, _, _, notes = fs.merge_items(
+            [row('1100')], {'items': [old]}, self.NOW, [])
+        self.assertNotIn('511781', {r['code'] for r in merged})
+
+
+if __name__ == '__main__':
+    unittest.main()
+
+```
+
+### `scripts/audit-browser.sh`
+
+```ts
+#!/usr/bin/env bash
+# Pre-release browser audit. Everything runs in ONE chain because the
+# browser daemon resets page state between unrelated invocations.
+#
+# Checks, on a 390x844 phone viewport:
+#   1. home shows the roster, the menu-reference-price label, the carried
+#      row's real capture date, and the non-live notice
+#   2. a full 7-match playthrough advances correctly (7 bracket matches,
+#      7 winners, a champion with a 3-step route)
+#   3. restart returns to match 1
+#   4. the champion card PNG export produces a real file
+#   5. no console errors along the way
+set -u
+BASE="${1:-http://127.0.0.1:5173/}"
+AB="agent-browser"
+export AGENT_BROWSER_DOWNLOAD_PATH="G:/WorkBuddy/McBracket/shots"
+# Isolated session: a wedged default daemon must not poison the audit.
+export AGENT_BROWSER_SESSION="mcbracket-audit"
+OUT="docs/audit"
+mkdir -p "$OUT" shots
+
+echo "== home (390x844) =="
+$AB set viewport 390 844
+$AB open "$BASE"
+$AB wait --load networkidle
+$AB console --clear
+$AB screenshot "$OUT/audit-01-home.png"
+echo -n "roster items: "; $AB eval "document.querySelectorAll('.roster-item').length"
+echo -n "menu-reference label: "; $AB eval "document.body.innerText.includes('菜单参考价') ? 'yes' : 'MISSING'"
+echo -n "carried capture date: "; $AB eval "document.body.innerText.includes('10-14') ? 'yes' : 'MISSING'"
+echo -n "non-live notice: "; $AB eval "document.body.innerText.includes('非实时') ? 'yes' : 'MISSING'"
+
+echo "== match 1 + data reveal =="
+$AB click "[data-testid=start]"
+$AB wait 500
+$AB screenshot "$OUT/audit-02-match1.png"
+$AB click "[data-testid=pick-a]"
+$AB wait 700
+$AB screenshot "$OUT/audit-03-reveal.png"
+echo -n "reveal provenance: "; $AB eval "document.querySelector('[data-testid=reveal]')?.innerText.includes('官方核价') ? 'yes' : 'MISSING'"
+
+echo "== matches 2..7 =="
+for i in 2 3 4 5 6 7; do
+  $AB click "[data-testid=next]"
+  $AB wait 350
+  $AB click "[data-testid=pick-a]"
+  $AB wait 350
+done
+$AB screenshot "$OUT/audit-04-match7.png"
+$AB click "[data-testid=next]"
+$AB wait 700
+$AB screenshot "$OUT/audit-05-champion.png"
+
+echo "== champion page facts =="
+echo -n "champion: "; $AB eval "document.querySelector('[data-testid=champion-name]')?.textContent"
+echo -n "bracket matches: "; $AB eval "document.querySelectorAll('.bracket-match').length"
+echo -n "bracket winners: "; $AB eval "document.querySelectorAll('.bracket-cell.winner').length"
+echo -n "route steps: "; $AB eval "document.querySelectorAll('.route-item').length"
+echo -n "snapshot notice: "; $AB eval "document.body.innerText.includes('官方数据快照') ? 'yes' : 'MISSING'"
+
+echo "== restart =="
+$AB click "[data-testid=restart]"
+$AB wait 500
+echo -n "progress after restart: "; $AB eval "document.querySelector('[data-testid=progress]')?.textContent ?? 'no-progress'"
+$AB screenshot "$OUT/audit-06-restart.png"
+
+echo "== replay + PNG export =="
+for i in 1 2 3 4 5 6 7; do
+  $AB click "[data-testid=pick-a]"
+  $AB wait 300
+  $AB click "[data-testid=next]"
+  $AB wait 300
+done
+echo -n "champion after replay: "; $AB eval "document.querySelector('[data-testid=champion-name]')?.textContent"
+echo -n "png data url length: "; $AB eval "window.__mcbracketDebug.pngLength()"
+$AB eval "(()=>{const s=document.querySelector('.export-stage');s.style.left='0';s.style.position='relative';document.querySelector('.app').style.display='none';return 'shown'})()"
+$AB wait 400
+$AB screenshot "$OUT/audit-07-card-render.png"
+$AB eval "(()=>{const s=document.querySelector('.export-stage');s.style.left='-20000px';s.style.position='fixed';document.querySelector('.app').style.display='';return 'restored'})()"
+$AB download "[data-testid=export]" shots/audit-champion-card.png
+ls -la shots/audit-champion-card.png 2>/dev/null || echo "NO FILE"
+
+echo "== desktop width =="
+$AB set viewport 1280 800
+$AB wait 400
+$AB screenshot "$OUT/audit-08-desktop.png"
+
+echo "== console =="
+$AB console
+echo "audit done"
+
+```
+
+### `scripts/audit-demo-dist.sh`
+
+```ts
+#!/usr/bin/env bash
+# No-token public-demo smoke test against the PRODUCTION build (dist/).
+# This is exactly what a visitor to the GitHub Pages demo will run:
+# static files, no MCP token, no backend. Includes a real PNG export.
+set -u
+BASE="${1:-http://127.0.0.1:5174/}"
+AB="agent-browser"
+export AGENT_BROWSER_DOWNLOAD_PATH="G:/WorkBuddy/McBracket/shots"
+OUT="docs/audit"
+mkdir -p "$OUT" shots
+
+$AB open "$BASE"
+$AB wait --load networkidle
+$AB set viewport 390 844
+$AB console --clear
+$AB screenshot "$OUT/audit-09-demo-home.png"
+echo -n "roster items: "; $AB eval "document.querySelectorAll('.roster-item').length"
+echo -n "snapshot badge: "; $AB eval "document.body.innerText.includes('官方数据快照') ? 'yes' : 'MISSING'"
+echo -n "menu-reference label: "; $AB eval "document.body.innerText.includes('菜单参考价') ? 'yes' : 'MISSING'"
+echo -n "non-live notice: "; $AB eval "document.body.innerText.includes('非实时') ? 'yes' : 'MISSING'"
+echo -n "no token anywhere: "; $AB eval "document.body.innerText.match(/Bearer|token/i) ? 'LEAK' : 'clean'"
+
+$AB click "[data-testid=start]"
+$AB wait 400
+for i in 1 2 3 4 5 6 7; do
+  $AB click "[data-testid=pick-a]"
+  $AB wait 250
+  $AB click "[data-testid=next]"
+  $AB wait 250
+done
+echo -n "champion: "; $AB eval "document.querySelector('[data-testid=champion-name]')?.textContent"
+$AB screenshot "$OUT/audit-10-demo-champion.png"
+$AB download "[data-testid=export]" shots/audit-demo-card.png
+ls -la shots/audit-demo-card.png 2>/dev/null || echo "NO FILE"
+echo "== console =="
+$AB console
+echo "dist demo smoke done"
 
 ```
 

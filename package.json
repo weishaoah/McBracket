@@ -9,7 +9,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:data": "python -m unittest discover -s tests -v"
   },
   "dependencies": {
     "html-to-image": "^1.11.13",

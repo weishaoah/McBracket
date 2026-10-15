@@ -1,5 +1,5 @@
 import type { SnapshotItem } from '../types'
-import { effectivePriceCents, formatYuan } from '../types'
+import { effectivePriceCents } from '../types'
 
 /**
  * Original, tongue-in-cheek titles derived only from things that are actually
@@ -84,8 +84,4 @@ export function championFlair(
   }
 
   return { badge, quote, facts }
-}
-
-export function priceLabel(item: SnapshotItem): string {
-  return formatYuan(effectivePriceCents(item))
 }

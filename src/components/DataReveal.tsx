@@ -1,4 +1,10 @@
-import { effectivePriceCents, formatYuan, type SnapshotItem } from '../types'
+import {
+  effectivePriceCents,
+  formatYuan,
+  priceSourceLabel,
+  priceStamp,
+  type SnapshotItem,
+} from '../types'
 
 interface Props {
   a: SnapshotItem
@@ -18,7 +24,7 @@ interface Row {
 function Row({ row }: { row: Row }) {
   const { av, bv, unit, label } = row
   const fmt = row.fmt ?? ((v: number) => String(v))
-  if (av === null || bv === null) {
+  if (av === null && bv === null) {
     return (
       <div className="reveal-row">
         <div className="val a lower">暂无可靠数据</div>
@@ -27,17 +33,24 @@ function Row({ row }: { row: Row }) {
       </div>
     )
   }
+  // One side may still have a value while the other is missing: show the
+  // value, an em dash for the missing side, and no higher/lower colouring
+  // because a comparison against "unknown" is not a comparison.
+  const cell = (v: number | null, other: number | null, side: 'a' | 'b') => {
+    if (v === null) return <div className={`val ${side} lower`}>—</div>
+    const cls = other === null ? '' : v > other ? 'higher' : v < other ? 'lower' : ''
+    return (
+      <div className={`val ${side} ${cls}`}>
+        {fmt(v)}
+        {unit}
+      </div>
+    )
+  }
   return (
     <div className="reveal-row">
-      <div className={`val a ${av > bv ? 'higher' : av < bv ? 'lower' : ''}`}>
-        {fmt(av)}
-        {unit}
-      </div>
+      {cell(av, bv, 'a')}
       <div className="lbl">{label}</div>
-      <div className={`val b ${bv > av ? 'higher' : bv < av ? 'lower' : ''}`}>
-        {fmt(bv)}
-        {unit}
-      </div>
+      {cell(bv, av, 'b')}
     </div>
   )
 }
@@ -56,6 +69,18 @@ export function DataReveal({ a, b, onNext, isLast }: Props) {
     a.nutritionMatch === 'none' ||
     b.nutritionMatch === 'none'
 
+  // Say which side the price really came from when the two differ, and when
+  // each side's evidence was captured — a carried row can be a day older.
+  const provenance = a.priceSource !== b.priceSource
+    ? ` 价格口径：${a.name}=${priceSourceLabel(a)}，${b.name}=${priceSourceLabel(b)}。`
+    : ''
+  const stamps = a.collectedAt !== b.collectedAt
+    ? ` 采集时间：${a.name} ${priceStamp(a)}，${b.name} ${priceStamp(b)}。`
+    : ''
+  const carried = a.carried || b.carried
+    ? ' 其中标注「沿用」的商品在最近一次采集时未在售，展示的是上次在售时采集的官方数据。'
+    : ''
+
   return (
     <div className="reveal" data-testid="reveal">
       <div className="reveal-title">
@@ -68,6 +93,9 @@ export function DataReveal({ a, b, onNext, isLast }: Props) {
         以上为同一门店、同一订餐渠道下的官方数据对比；价格优先采用官方核价接口结果，
         菜单价与核价单位不同（元 / 分），已统一换算后比较。
         {missing && ' 部分商品缺少可精确匹配的官方数据，已如实标注，未作推测。'}
+        {provenance}
+        {stamps}
+        {carried}
       </div>
       <div className="next-row">
         <button className="btn btn-primary" onClick={onNext} data-testid="next">

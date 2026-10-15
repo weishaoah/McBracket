@@ -3,7 +3,7 @@
   "mode": "demo-snapshot",
   "capturedWith": "official-mcp",
   "endpoint": "https://mcp.mcd.cn",
-  "collectedAt": "2026-10-15 09:56:44",
+  "collectedAt": "2026-10-15 22:00:51",
   "collectedAtTimezone": "GMT+08:00",
   "store": {
     "code": "1450713",
@@ -11,8 +11,12 @@
     "city": "上海",
     "businessStatus": true
   },
+  "channel": {
+    "orderType": 1,
+    "beType": 1
+  },
   "orderType": "堂食/到店取餐渠道（orderType=1, beType=1）",
-  "notes": "菜单价格来自 query-meals（单位：元，字符串）；核价来自 calculate-price（单位：分，整数）。两者单位不同，已统一换算为分后比较。营养数据来自 list-nutrition-foods，仅采用商品名精确匹配项，未匹配一律显示「暂无可靠数据」。麦当劳菜单按营业时段切换（如早餐时段不供应汉堡），因此快照可能是分批采集的，每条数据保留各自的采集时间。",
+  "notes": "菜单价格来自 query-meals（单位：元，字符串）；核价来自 calculate-price（单位：分，整数）。两者单位不同，已统一换算为分后比较。营养数据来自 list-nutrition-foods，仅采用商品名精确匹配项；官方营养表中缺失的字段显示 null（页面渲染为「暂无可靠数据」），不会被当成 0。麦当劳菜单按营业时段切换（如早餐时段不供应汉堡），因此快照可能是分批采集的：每条数据保留各自的采集时间，合并时只接受同一门店、同一渠道的历史数据，超过 7 天的旧行会被丢弃而不是继续展示。",
   "toolsUsed": [
     "calculate-price",
     "list-nutrition-foods",
@@ -26,6 +30,7 @@
       "name": "巨无霸",
       "menuPriceCents": 2550,
       "quotePriceCents": 2550,
+      "quoteNote": null,
       "priceSource": "calculate-price",
       "nutrition": {
         "energyKcal": 513,
@@ -35,7 +40,8 @@
         "sodium": 961
       },
       "nutritionMatch": "exact",
-      "collectedAt": "2026-10-14 11:26:56"
+      "collectedAt": "2026-10-15 22:00:51",
+      "carried": false
     },
     {
       "code": "511781",
@@ -51,14 +57,16 @@
         "sodium": 1037
       },
       "nutritionMatch": "exact",
-      "collectedAt": "2026-10-14 11:26:56"
+      "collectedAt": "2026-10-14 11:26:56",
+      "carried": true
     },
     {
       "code": "4648",
       "name": "不素之霸双层牛堡",
       "menuPriceCents": 2650,
-      "quotePriceCents": null,
-      "priceSource": "query-meals",
+      "quotePriceCents": 2650,
+      "quoteNote": null,
+      "priceSource": "calculate-price",
       "nutrition": {
         "energyKcal": 493,
         "protein": 28.0,
@@ -67,14 +75,16 @@
         "sodium": 1012
       },
       "nutritionMatch": "exact",
-      "collectedAt": "2026-10-14 11:26:56"
+      "collectedAt": "2026-10-15 15:47:08",
+      "carried": true
     },
     {
       "code": "1600",
       "name": "麦香鱼",
       "menuPriceCents": 2250,
-      "quotePriceCents": null,
-      "priceSource": "query-meals",
+      "quotePriceCents": 2250,
+      "quoteNote": null,
+      "priceSource": "calculate-price",
       "nutrition": {
         "energyKcal": 325,
         "protein": 16.0,
@@ -83,14 +93,16 @@
         "sodium": 556
       },
       "nutritionMatch": "exact",
-      "collectedAt": "2026-10-14 11:26:56"
+      "collectedAt": "2026-10-15 22:00:51",
+      "carried": false
     },
     {
       "code": "1450",
       "name": "麦香鸡",
       "menuPriceCents": 1700,
-      "quotePriceCents": null,
-      "priceSource": "query-meals",
+      "quotePriceCents": 1700,
+      "quoteNote": null,
+      "priceSource": "calculate-price",
       "nutrition": {
         "energyKcal": 369,
         "protein": 15.0,
@@ -99,14 +111,16 @@
         "sodium": 731
       },
       "nutritionMatch": "exact",
-      "collectedAt": "2026-10-14 11:26:56"
+      "collectedAt": "2026-10-15 22:00:51",
+      "carried": false
     },
     {
       "code": "520445",
       "name": "薄皮焦香V翅",
       "menuPriceCents": 1600,
-      "quotePriceCents": null,
-      "priceSource": "query-meals",
+      "quotePriceCents": 1600,
+      "quoteNote": null,
+      "priceSource": "calculate-price",
       "nutrition": {
         "energyKcal": 192,
         "protein": 17.0,
@@ -115,7 +129,8 @@
         "sodium": 594
       },
       "nutritionMatch": "exact",
-      "collectedAt": "2026-10-14 11:26:56"
+      "collectedAt": "2026-10-15 22:00:51",
+      "carried": false
     },
     {
       "code": "2430",
@@ -132,14 +147,16 @@
         "sodium": 53
       },
       "nutritionMatch": "exact",
-      "collectedAt": "2026-10-15 09:56:44"
+      "collectedAt": "2026-10-15 22:00:51",
+      "carried": false
     },
     {
       "code": "6102",
       "name": "苹果片",
       "menuPriceCents": 700,
-      "quotePriceCents": null,
-      "priceSource": "query-meals",
+      "quotePriceCents": 700,
+      "quoteNote": null,
+      "priceSource": "calculate-price",
       "nutrition": {
         "energyKcal": 32,
         "protein": 0.0,
@@ -148,27 +165,23 @@
         "sodium": 0
       },
       "nutritionMatch": "exact",
-      "collectedAt": "2026-10-14 11:26:56"
+      "collectedAt": "2026-10-15 22:00:51",
+      "carried": false
     }
   ],
   "collectedFrom": "2026-10-14 11:26:56",
-  "collectedTo": "2026-10-15 09:56:44",
+  "collectedTo": "2026-10-15 22:00:51",
   "lastRun": {
-    "at": "2026-10-15 09:56:44",
+    "at": "2026-10-15 22:00:51",
     "requested": 8,
-    "freshThisRun": 1,
-    "carriedFromPrevious": 7,
-    "refreshedFromPrevious": 1,
+    "freshThisRun": 6,
+    "carriedFromPrevious": 2,
+    "refreshedFromPrevious": 6,
     "missing": [],
     "droppedThisRun": {
-      "1100": "not on the menu at this daypart",
       "511781": "not on the menu at this daypart",
-      "4648": "not on the menu at this daypart",
-      "1600": "not on the menu at this daypart",
-      "1450": "not on the menu at this daypart",
-      "520445": "not on the menu at this daypart",
-      "6102": "not on the menu at this daypart"
+      "4648": "not on the menu at this daypart"
     }
   },
-  "previousCollectedAt": "2026-10-15 09:56:41"
+  "previousCollectedAt": "2026-10-15 15:47:08"
 }

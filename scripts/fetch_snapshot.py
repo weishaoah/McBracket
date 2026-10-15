@@ -23,6 +23,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -38,8 +39,24 @@ WRITE_TOOLS = {
 
 # Eight seeds chosen for spread across price band and category. Anything not
 # present in the fetched menu, or without an exact nutrition-table match, is
-# dropped rather than invented.
+# dropped rather than invented. The roster is fixed at these eight codes: a
+# merge must never grow or shrink it silently.
 SEED_CODES = ['1100', '511781', '4648', '1600', '1450', '520445', '2430', '6102']
+SEED_SET = set(SEED_CODES)
+
+# The one channel this snapshot is allowed to describe. Prices from a
+# different store or a different ordering channel are not comparable with
+# these, so a previous snapshot is only merged when it matches exactly.
+CHANNEL = {'orderType': 1, 'beType': 1}
+CHANNEL_LABEL = '堂食/到店取餐渠道（orderType=1, beType=1）'
+
+# A carried-over row older than this is dropped rather than shown: a week-old
+# price is not "current data" and displaying it as such would mislead.
+STALE_AFTER_DAYS = 7
+
+# Nutrient columns kept from the official table, with their natural types.
+NUTRIENT_FIELDS = (('energyKcal', int), ('protein', float), ('fat', float),
+                   ('carbohydrate', float), ('sodium', int))
 
 
 # --------------------------------------------------------------------------- #
@@ -185,6 +202,16 @@ def yuan_to_cents(value) -> int | None:
         return None
 
 
+def to_int_cents(value) -> int | None:
+    """calculate-price is documented as integer cents; tolerate numeric strings."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    s = str(value).strip()
+    return int(s) if s.isdigit() else None
+
+
 def as_records(data, *keys):
     """`data` is sometimes a bare list, sometimes {"stores": [...]}."""
     if isinstance(data, list):
@@ -200,37 +227,78 @@ def as_records(data, *keys):
     return []
 
 
+def _to_number(value, cast):
+    """Missing means missing.
+
+    A real 0 in the official table (diet cola 0 kcal, apple slices 0 mg
+    sodium) must stay 0; only an absent or empty cell becomes None so the UI
+    can render 「暂无可靠数据」instead of a fabricated zero.
+    """
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    try:
+        return cast(s)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_header(line: str) -> list[str] | None:
+    """`[160]{productName,nutritionDescription,...,calcium}:` -> column names."""
+    m = re.search(r'\{([^}]*)\}', line)
+    if not m:
+        return None
+    cols = [c.strip() for c in m.group(1).split(',') if c.strip()]
+    return cols or None
+
+
 def parse_nutrition_csv(payload) -> dict[str, dict]:
+    """Official nutrition table -> {productName: {field: number | None}}.
+
+    The table arrives as a header line plus CSV rows inside a JSON string.
+    Columns are located from the header when present, so a reordered or
+    extended table cannot silently shift values into the wrong field, and a
+    row whose field count does not match the header is skipped instead of
+    being mis-parsed. Absent cells stay None — never 0.
+    """
+    if isinstance(payload, dict):
+        inner = payload.get('data')
+        payload = inner if inner is not None else payload
     if isinstance(payload, list):
-        rows = payload
+        rows = [r for r in payload if isinstance(r, dict)]
+        header = None
     elif isinstance(payload, str):
+        header = None
         rows = []
-        for line in payload.split('\n')[1:]:
+        for line in payload.split('\n'):
             line = line.strip()
-            if not line or line.startswith('['):
+            if not line:
+                continue
+            if line.startswith('['):
+                header = _parse_header(line)
                 continue
             parts = [p.strip() for p in line.split(',')]
-            if len(parts) >= 9:
+            if header and len(parts) == len(header):
+                rows.append(dict(zip(header, parts)))
+            elif not header and len(parts) >= 9:
                 rows.append({'productName': parts[0], 'energyKcal': parts[3],
                              'protein': parts[4], 'fat': parts[5],
                              'carbohydrate': parts[6], 'sodium': parts[7]})
+            else:
+                print(f'  ! nutrition row skipped (field count mismatch): {line[:60]}',
+                      file=sys.stderr)
     else:
         rows = []
-    out = {}
+        header = None
+
+    out: dict[str, dict] = {}
     for r in rows:
         name = r.get('productName')
         if not name or name in out:
             continue
-        try:
-            out[name] = {
-                'energyKcal': int(r.get('energyKcal') or 0),
-                'protein': float(r.get('protein') or 0),
-                'fat': float(r.get('fat') or 0),
-                'carbohydrate': float(r.get('carbohydrate') or 0),
-                'sodium': int(r.get('sodium') or 0),
-            }
-        except Exception:
-            continue
+        out[name] = {field: _to_number(r.get(field), cast) for field, cast in NUTRIENT_FIELDS}
     return out
 
 
@@ -276,10 +344,7 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
 
     nut_obj = unwrap(mcp.call('list-nutrition-foods', {}))
     tools_used.append('list-nutrition-foods')
-    nutrition = parse_nutrition_csv((nut_obj.get('data') or {}) if isinstance(nut_obj.get('data'), dict)
-                                    else nut_obj.get('data')) if business_ok(nut_obj) else {}
-    if not nutrition:
-        nutrition = parse_nutrition_csv(nut_obj.get('data'))
+    nutrition = parse_nutrition_csv(nut_obj.get('data')) if business_ok(nut_obj) else {}
 
     items = []
     dropped: dict[str, str] = {}
@@ -310,7 +375,7 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
                     pl = d.get('productList') or []
                     if pl:
                         cand = pl[0].get('price')
-                quote_cents = int(cand) if isinstance(cand, (int, float)) else None
+                quote_cents = to_int_cents(cand)
                 quote_ok = quote_cents is not None and quote_cents > 0
                 if not quote_ok:
                     quote_note = 'calculate-price returned no positive total'
@@ -330,6 +395,9 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
             'nutrition': nut,          # None => render as "暂无可靠数据"
             'nutritionMatch': 'exact' if nut else 'none',
             'collectedAt': (official or {}).get('formatted') or (official or {}).get('datetime'),
+            'carried': False,          # set True by the merge when a row survives
+                                        # from an earlier run because today's
+                                        # menu did not carry the item
         })
 
     snapshot = {
@@ -345,16 +413,22 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
         'collectedAtTimezone': (official or {}).get('timezone', 'GMT+08:00'),
         'store': {'code': code, 'name': name,
                   'city': city, 'businessStatus': chosen.get('businessStatus')},
+        # Machine-readable channel, checked before any cross-run merge so a
+        # snapshot from another store or channel can never bleed prices in.
+        'channel': dict(CHANNEL),
         # Every figure below comes from this one channel, so prices are only
         # ever compared within identical store + order-type conditions.
-        'orderType': '堂食/到店取餐渠道（orderType=1, beType=1）',
+        'orderType': CHANNEL_LABEL,
         'notes': (
             '菜单价格来自 query-meals（单位：元，字符串）；核价来自 calculate-price'
             '（单位：分，整数）。两者单位不同，已统一换算为分后比较。'
-            '营养数据来自 list-nutrition-foods，仅采用商品名精确匹配项，'
-            '未匹配一律显示「暂无可靠数据」。'
+            '营养数据来自 list-nutrition-foods，仅采用商品名精确匹配项；'
+            '官方营养表中缺失的字段显示 null（页面渲染为「暂无可靠数据」），'
+            '不会被当成 0。'
             '麦当劳菜单按营业时段切换（如早餐时段不供应汉堡），'
-            '因此快照可能是分批采集的，每条数据保留各自的采集时间。'
+            '因此快照可能是分批采集的：每条数据保留各自的采集时间，'
+            '合并时只接受同一门店、同一渠道的历史数据，超过 '
+            f'{STALE_AFTER_DAYS} 天的旧行会被丢弃而不是继续展示。'
         ),
         'toolsUsed': sorted(set(tools_used)),
         'items': items,
@@ -363,7 +437,9 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
     # ---- merge with the previous snapshot ---------------------------------- #
     # The menu is daypart-dependent (breakfast has no burgers), so a single run
     # cannot always see all eight seeds. Merging keeps whatever a previous run
-    # captured instead of silently downgrading the snapshot to one item.
+    # captured instead of silently downgrading the snapshot to one item —
+    # but only when the previous file describes the SAME store and channel,
+    # because prices are not comparable across either.
     prev = None
     if out_path.exists():
         try:
@@ -371,7 +447,14 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
         except (OSError, ValueError):
             prev = None
 
-    merged, carried, refreshed = merge_items(items, prev)
+    merge_notes: list[str] = []
+    if prev and not compatible_previous(prev, code, CHANNEL, CHANNEL_LABEL):
+        merge_notes.append('previous snapshot ignored: different store or channel')
+        prev = None
+
+    now_stamp = (official or {}).get('formatted') or (official or {}).get('datetime')
+    merged, carried, refreshed, merge_notes = merge_items(
+        items, prev, now_stamp, merge_notes)
     snapshot['items'] = merged
 
     # When rows come from more than one run, say so: a single "collectedAt"
@@ -384,7 +467,7 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
     # happened. After several merges it is not the coverage of the file as a
     # whole, and reading it as such would be misleading.
     snapshot['lastRun'] = {
-        'at': (official or {}).get('formatted') or (official or {}).get('datetime'),
+        'at': now_stamp,
         'requested': len(SEED_CODES),
         'freshThisRun': len(items),
         'carriedFromPrevious': len(carried),
@@ -393,6 +476,8 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
     }
     if dropped:
         snapshot['lastRun']['droppedThisRun'] = dropped
+    if merge_notes:
+        snapshot['lastRun']['mergeNotes'] = merge_notes
     if prev:
         snapshot['previousCollectedAt'] = prev.get('collectedAt')
 
@@ -407,68 +492,125 @@ def collect(city: str, keyword: str, store_code: str | None, out_path: Path):
     for it in merged:
         nut = it['nutrition']
         tag = ' ' if it['code'] in {i['code'] for i in items} else '~'
+        kcal = nut.get('energyKcal') if nut else None
         print(f" {tag}{it['code']:>10} {it['name']:<14} "
               f"menu={'-' if it['menuPriceCents'] is None else it['menuPriceCents']/100:>6} "
               f"quote={'-' if it['quotePriceCents'] is None else it['quotePriceCents']/100:>6} "
-              f"kcal={'-' if not nut else nut['energyKcal']:>4} match={it['nutritionMatch']}")
+              f"kcal={'-' if kcal is None else kcal:>4} match={it['nutritionMatch']}"
+              f"{' carried' if it.get('carried') else ''}")
     for sku, why in dropped.items():
         print(f"  - {sku}: {why}")
     print('  (~ = carried over from the previous snapshot)')
+    for note in merge_notes:
+        print(f'  * {note}')
     print(f'written: {out_path}')
     return snapshot
 
 
-def merge_items(fresh: list[dict], prev: dict | None):
-    """Keep the best evidence per seed code across runs.
+def compatible_previous(prev: dict | None, store_code: str, channel: dict,
+                        channel_label: str) -> bool:
+    """May this previous snapshot be merged into the current run?
 
-    A fresh row wins when it carries more information than the previous one
-    (a verified quote beats a menu-only price). Otherwise the previous row is
-    carried over, so a breakfast-hour run never erases a lunch-hour capture.
-    Returns (merged, carried_codes, refreshed_codes).
+    Prices are only comparable inside one store and one ordering channel, so
+    a file from a different store — or a different channel — must be ignored
+    wholesale rather than merged row by row. Files written before the
+    `channel` field existed fall back to comparing the human-readable
+    `orderType` label.
     """
-    prev_rows = {r['code']: r for r in ((prev or {}).get('items') or [])}
-    fresh_codes = {r['code'] for r in fresh}
+    if not isinstance(prev, dict) or not prev.get('items'):
+        return False
+    if (prev.get('store') or {}).get('code') != store_code:
+        return False
+    prev_channel = prev.get('channel')
+    if prev_channel is None:
+        return prev.get('orderType') == channel_label
+    return prev_channel == channel
 
+
+def _age_days(stamp, now_stamp) -> float | None:
+    """Age of a `YYYY-MM-DD HH:MM:SS` stamp in days, or None if unparseable."""
+    for candidate in (stamp, now_stamp):
+        if not isinstance(candidate, str):
+            return None
+    try:
+        then = datetime.strptime(stamp, '%Y-%m-%d %H:%M:%S')
+        now = datetime.strptime(now_stamp, '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return None
+    return (now - then).total_seconds() / 86400.0
+
+
+def merge_items(fresh: list[dict], prev: dict | None, now_stamp,
+                notes: list[str] | None = None,
+                max_age_days: int = STALE_AFTER_DAYS):
+    """Merge a fresh run into the previous snapshot, field-wise.
+
+    Rules, in order:
+
+    - An item the fresh run could not see at all (absent from today's menu)
+      is carried over unchanged, keeping the timestamp it was captured at.
+      Rows older than `max_age_days` are dropped instead: a week-old price is
+      not current data.
+    - An item the fresh run did see: today's observation wins for every
+      field it actually carries. The only things inherited from an older row
+      are (a) a verified quote that today's run failed to obtain and (b) a
+      nutrition-table match, which is global reference data rather than
+      store- or time-specific. Both keep the older row's timestamp so the
+      page can say when the evidence is really from.
+    - Rows outside the eight seeds are never carried: the roster is fixed.
+
+    Returns (merged, carried_codes, refreshed_codes, notes).
+    """
+    notes = list(notes or [])
+    prev_rows = {r['code']: r for r in ((prev or {}).get('items') or [])
+                 if isinstance(r, dict) and r.get('code')}
+    extra = sorted(set(prev_rows) - SEED_SET)
+    if extra:
+        notes.append(f'ignored {len(extra)} previous row(s) outside the eight seeds: {extra}')
+    prev_rows = {c: r for c, r in prev_rows.items() if c in SEED_SET}
+
+    fresh_by_code = {r['code']: r for r in fresh}
     merged: list[dict] = []
     carried: list[str] = []
     refreshed: list[str] = []
 
-    for row in fresh:
-        old = prev_rows.get(row['code'])
-        if old and _score(old) > _score(row):
+    for code in SEED_CODES:  # fixed roster order
+        row = fresh_by_code.get(code)
+        old = prev_rows.get(code)
+
+        if row is None:
+            if old is None:
+                continue
+            age = _age_days(old.get('collectedAt'), now_stamp)
+            if age is None or age > max_age_days:
+                notes.append(f'{code} dropped: last captured {old.get("collectedAt")}, '
+                             f'older than {max_age_days} days')
+                continue
             kept = dict(old)
-            kept.setdefault('collectedAt', (prev or {}).get('collectedAt'))
+            kept['carried'] = True
             merged.append(kept)
-            carried.append(row['code'])
-        else:
-            merged.append(row)
-            if old:
-                refreshed.append(row['code'])
-
-    prev_at = (prev or {}).get('collectedAt')
-    for code, row in prev_rows.items():
-        if code not in fresh_codes:
-            row = dict(row)
-            # A carried row keeps the timestamp it was actually captured at, so
-            # the snapshot never implies it is fresher than it is.
-            row.setdefault('collectedAt', prev_at)
-            merged.append(row)
             carried.append(code)
+            continue
 
-    merged.sort(key=lambda r: SEED_CODES.index(r['code']) if r['code'] in SEED_CODES else 99)
-    return merged, carried, refreshed
+        if old is None:
+            merged.append(row)
+            continue
 
+        out = dict(row)
+        if old.get('quotePriceCents') and not out.get('quotePriceCents'):
+            # Today's quote failed; keep the older *verified* quote, but say
+            # which run verified it instead of presenting it as today's price.
+            out['quotePriceCents'] = old['quotePriceCents']
+            out['priceSource'] = 'calculate-price'
+            out['quoteCollectedAt'] = old.get('collectedAt')
+            out['quoteNote'] = f"verified in an earlier run ({old.get('collectedAt')})"
+        if not out.get('nutrition') and old.get('nutrition'):
+            out['nutrition'] = old['nutrition']
+            out['nutritionMatch'] = old.get('nutritionMatch', 'exact')
+        merged.append(out)
+        refreshed.append(code)
 
-def _score(row: dict) -> int:
-    """Evidence ranking: verified quote > menu price > anything else."""
-    s = 0
-    if row.get('quotePriceCents'):
-        s += 4
-    if row.get('menuPriceCents'):
-        s += 2
-    if row.get('nutrition'):
-        s += 1
-    return s
+    return merged, carried, refreshed, notes
 
 
 def main():

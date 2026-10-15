@@ -5,6 +5,7 @@ import {
   buildMatches,
   championCode,
   championRoute,
+  currentMatchIndex,
   eliminatedCodes,
   resolve,
   roundProgress,
@@ -18,8 +19,22 @@ import { ChampionCard } from './components/ChampionCard'
 import { FoodArt } from './components/FoodArt'
 
 const snapshot = snapshotJson as Snapshot
-const ITEMS: SnapshotItem[] = snapshot.items
+/**
+ * Defensive de-duplication by code: a corrupted snapshot must never put the
+ * same food into two bracket slots, and the bracket needs exactly eight
+ * distinct seeds. Anything else renders a data-error panel instead of a
+ * half-broken tournament.
+ */
+const ITEMS: SnapshotItem[] = (() => {
+  const seen = new Set<string>()
+  return snapshot.items.filter((i) => {
+    if (!i || typeof i.code !== 'string' || seen.has(i.code)) return false
+    seen.add(i.code)
+    return true
+  })
+})()
 const BY_CODE = new Map(ITEMS.map((i) => [i.code, i]))
+const ROSTER_OK = ITEMS.length === 8
 const REPO_URL = 'https://github.com/weishaoah/McBracket'
 
 type Stage = 'home' | 'playing' | 'champion'
@@ -29,18 +44,32 @@ export default function App() {
   const [order, setOrder] = useState<string[]>(() => ITEMS.map((i) => i.code))
   const [picks, setPicks] = useState<Array<string | null>>(() => Array(7).fill(null))
   /** Which match is on screen; the reveal keeps it visible until 「下一场」. */
-  const [viewIndex, setViewIndex] = useState(0)
+  const [rawView, setRawView] = useState(0)
   const [busy, setBusy] = useState<string | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
 
-  const matches = useMemo(() => resolve(buildMatches(order), picks), [order, picks])
+  const matches = useMemo(
+    () => (ROSTER_OK ? resolve(buildMatches(order), picks) : []),
+    [order, picks],
+  )
+  /**
+   * The match on screen must be one whose contenders are known. If the
+   * stored index ever points at an empty slot, fall back to the first
+   * playable match — so a click can never be written into the wrong
+   * bracket slot (a wrong advancement).
+   */
+  const viewIndex = useMemo(() => {
+    const m = matches[rawView]
+    if (m && m.slotA && m.slotB) return rawView
+    return currentMatchIndex(matches, picks) ?? rawView
+  }, [matches, picks, rawView])
   const { done } = roundProgress(matches, picks)
   const champion = championCode(picks)
 
   const start = useCallback(() => {
     setOrder(shuffle(ITEMS.map((i) => i.code)))
     setPicks(Array(7).fill(null))
-    setViewIndex(0)
+    setRawView(0)
     setStage('playing')
   }, [])
 
@@ -58,7 +87,7 @@ export default function App() {
 
   const next = useCallback(() => {
     if (viewIndex === 6) setStage('champion')
-    else setViewIndex((v) => Math.min(v + 1, 6))
+    else setRawView((v) => Math.min(v + 1, 6))
   }, [viewIndex])
 
   const nameOf = useCallback(
@@ -126,6 +155,27 @@ export default function App() {
     [matches, picks],
   )
 
+  if (!ROSTER_OK) {
+    return (
+      <div className="app">
+        <div className="topbar">
+          <div className="brand">
+            <span className="brand-mark">McBracket</span>
+            <span className="brand-sub">麦门最强餐品争霸赛</span>
+          </div>
+        </div>
+        <div className="home">
+          <h1 className="hero-title">数据快照不完整</h1>
+          <p className="hero-sub">
+            本期八强需要 8 款不同餐品，当前快照只有 {ITEMS.length} 款
+            （门店 {snapshot.store.name}，采集于 {collectedLabel(snapshot)}）。
+            请重新运行 scripts/fetch_snapshot.py 采集官方数据后再试。
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="app">
       <div className="topbar">
@@ -143,7 +193,7 @@ export default function App() {
         <HomeView snapshot={snapshot} items={ITEMS} onStart={start} />
       )}
 
-      {stage === 'playing' && matches[viewIndex].slotA && matches[viewIndex].slotB && (
+      {stage === 'playing' && matches[viewIndex]?.slotA && matches[viewIndex]?.slotB && (
         <MatchView
           match={matches[viewIndex]}
           a={BY_CODE.get(matches[viewIndex].slotA!)!}
