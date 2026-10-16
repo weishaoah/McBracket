@@ -120,7 +120,9 @@
 - 仓库：`M-China/mcd-developer-innovation-challenge`（官方大赛仓库；
   README 中 `M-China-Official` 链接实际 404，已按真实仓库提交）
 - 标题：`参赛申请【McBracket · 麦门最强餐品争霸赛】`
+- Issue：[#786](https://github.com/M-China/mcd-developer-innovation-challenge/issues/786)（2026-10-16 11:33 提交，状态 open）
 - 格式：按官方 README 模板——`【参赛申请】` + 项目名称 / 项目地址（纯文本 URL）/
   项目简介（单行，无 Markdown 链接、无换行）
-- 提交时间：2026-10-16 11:2x；系统自动校验回复：**待确认**（提交后由官方机器人
-  回复成功或失败原因，结果记录于此行）
+- 系统自动校验回复：**截至 11:38 尚未收到**（提交后约 4 分钟内无评论）。
+  官方 README 说明校验成功后系统会在 Issue 下回复成功通知；若失败会回复原因，
+  可修改后重新提交。**报名是否成功以该 Issue 下的官方回复为准，此处未提前断言。**

@@ -147,7 +147,9 @@
    RC 报告状态改为「已发布」，§8 逐条记录执行结果。
 4. **官方报名 Issue**：核对官方 README 报名格式（【参赛申请】+ 项目名称/
    项目地址纯文本 URL/项目简介单行），确认 `M-China-Official` 链接 404、
-   真实仓库为 `M-China/mcd-developer-innovation-challenge` 后提交报名 Issue。
+   真实仓库为 `M-China/mcd-developer-innovation-challenge` 后，
+   于 11:33 提交报名 Issue [#786](https://github.com/M-China/mcd-developer-innovation-challenge/issues/786)。
+   截至 11:38 官方系统尚未回复校验结果——报名是否成功以 Issue 下官方回复为准。
 
 **诚实边界（三续）**：
 
