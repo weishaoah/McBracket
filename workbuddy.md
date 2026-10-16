@@ -88,3 +88,39 @@
   唯一未覆盖的是真人试玩（作者明确记录为残留风险，未虚构用户反馈）。
 - 培根安格斯厚牛堡截至审计时仍无核价，页面按「菜单参考价」展示，
   未用任何估算值补齐。
+
+---
+
+## 2026-10-16 Release Candidate 冻结会话（同一项目，续记）
+
+**触发**：审计结果确认后，作者决定冻结候选版本，进入 RC 阶段：
+先固化证据与材料，对外操作（建仓/推送/部署/报名）等确认后再执行。
+
+**WorkBuddy 在本轮实际做的事**：
+
+1. **冻结候选版本**：以 `22d3852` 为基线重跑全量验证（tsc PASS /
+   Vitest 26/26 / Python 21/21 / build 2.65s），记录快照 git blob
+   `62716180` 与 md5 `117dd0b7`，产出 `docs/RELEASE-RC1.md`；
+   RC 冻结提交于 2026-10-16 10:22（8 个文件：RC 报告、部署工作流、
+   试玩指南与模板、子路径实测截图、README/package.json/workbuddy.md
+   更新）。提交哈希不写入文件——自引用哈希会随提交本身失效，
+   以 `git log` 顶部记录为准。
+2. **必交文件核对**：README / CONTEST_DECLARATION / MCP_INTEGRATION /
+   mcp-config.example.json / workbuddy.md / LICENSE / 源代码齐全；
+   参赛声明与官方模板逐字一致（md5 双方 `91a7b32e`）。
+3. **措辞核查**：全仓检索「在售/实时」30 处逐一核对，确认页面从未声称
+   8 款当前全部在售，该词只出现在带时间戳的采集记录中；结论是无误，
+   未做改动（核查过程写入 RC 报告 §4）。
+4. **部署就绪**：新增 `.github/workflows/deploy.yml`（push → tsc + Vitest
+   → build → Pages）；发现 Vite 不复制 public 点文件，改在 build 脚本
+   尾部用 node 写 `dist/.nojekyll`；本地以 `/McBracket/` 子路径
+   HTTP + 浏览器双重实测通过。
+5. **用户材料**：新增 `docs/PLAY_GUIDE.md`（只讲怎么玩，不宣传）与
+   `docs/PLAYTEST_TEMPLATE.md`（试玩记录模板，含「不足 5 人如实写不足」
+   的诚实约束）。
+
+**诚实边界（再续）**：
+
+- RC 报告中「未验证」一栏如实列出：0 人试玩、Pages 线上未访问、
+  官方 Issue 未提交、培根安格斯核价未补齐——发布前不会把这些写成已完成。
+- 试玩指南与模板只提供方法和格式，不含任何玩家反馈（尚未发生）。

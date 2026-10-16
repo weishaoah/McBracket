@@ -118,8 +118,25 @@ scripts/make_review_packet.py   外部审查包生成器
 
 ## 部署（GitHub Pages）
 
-`vite.config.ts` 已设置 `base: './'`，`npm run build` 产物可直接部署到
-`https://<user>.github.io/McBracket/`。Demo 模式不需要任何凭证。
+Demo 是纯静态站点：无后端、无数据库、无 Token。两种方式任选：
+
+**方式一：GitHub Actions（推荐，仓库公开后）**
+
+1. 仓库 Settings → Pages → Build and deployment → Source 选 **GitHub Actions**。
+2. 推送即自动部署：`.github/workflows/deploy.yml` 会先跑 `tsc --noEmit` 与
+   Vitest，通过后才 `npm run build` 并发布 `dist/`。
+3. 几分钟后访问 `https://<user>.github.io/McBracket/`。
+
+**方式二：手动**
+
+```bash
+npm run build          # 产物在 dist/
+# 把 dist/ 推到 gh-pages 分支，或用任何静态托管
+```
+
+子路径兼容：`vite.config.ts` 设置 `base: './'`，HTML 里的资源引用全部是相对路径，
+部署到项目子路径（`/McBracket/`）不需要改任何配置——发布前已在本地以
+`/McBracket/` 子路径实测通过（见 `docs/audit/AUDIT-EVIDENCE.md`）。
 
 ## License
 
