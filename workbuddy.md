@@ -124,3 +124,33 @@
 - RC 报告中「未验证」一栏如实列出：0 人试玩、Pages 线上未访问、
   官方 Issue 未提交、培根安格斯核价未补齐——发布前不会把这些写成已完成。
 - 试玩指南与模板只提供方法和格式，不含任何玩家反馈（尚未发生）。
+
+---
+
+## 2026-10-16 发布执行会话（同一项目，续记）
+
+**触发**：作者确认推送，执行 RC 报告 §8 的对外操作清单。
+
+**WorkBuddy 在本轮实际做的事**：
+
+1. **建仓与推送**：GitHub MCP 连接器为 App 集成、无建仓权限（403），
+   改用本机 Git 凭据管理器缓存的 OAuth Token（scope `repo, workflow`）
+   经 API 创建公开仓库 `weishaoah/McBracket`（id 1421582518），
+   `git push -u origin main` 推送 3 个提交（762b521 → 22d3852 → RC 冻结提交）。
+   Token 全程只经环境变量传递，未写入任何文件。
+2. **上线 Demo**：经 API 启用 Pages（build_type=workflow）；
+   `Deploy Demo to GitHub Pages` 工作流对 RC 提交部署成功；
+   线上地址 https://weishaoah.github.io/McBracket/ 经 curl + 真实浏览器
+   双重验证（8 强名单、快照徽标、非官方声明、对局与数据揭晓），
+   截图 `docs/audit/audit-13-live-site.png`；仓库 homepage 已设为该地址。
+3. **文档回写**：README 试玩表改为线上地址并附线上复验说明；
+   RC 报告状态改为「已发布」，§8 逐条记录执行结果。
+4. **官方报名 Issue**：核对官方 README 报名格式（【参赛申请】+ 项目名称/
+   项目地址纯文本 URL/项目简介单行），确认 `M-China-Official` 链接 404、
+   真实仓库为 `M-China/mcd-developer-innovation-challenge` 后提交报名 Issue。
+
+**诚实边界（三续）**：
+
+- 报名 Issue 提交后，官方系统会自动回复校验结果；截至文档写入时
+  **尚未收到回复**，结果以官方 Issue 下的实际回复为准，未提前断言报名成功。
+- 线上 Demo 复用本地已验证的同一构建产物，无任何线上专属改动。

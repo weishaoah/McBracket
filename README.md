@@ -11,7 +11,7 @@
 
 | 方式 | 说明 |
 |---|---|
-| 在线 Demo | GitHub Pages（仓库公开后开启，见下方「部署」），无需 Token、无需注册 |
+| 在线 Demo | **https://weishaoah.github.io/McBracket/**（GitHub Pages，已上线；无需 Token、无需注册） |
 | 本地运行 | `npm install && npm run dev`，打开 http://127.0.0.1:5173/ |
 
 ## 三步玩法
@@ -136,7 +136,10 @@ npm run build          # 产物在 dist/
 
 子路径兼容：`vite.config.ts` 设置 `base: './'`，HTML 里的资源引用全部是相对路径，
 部署到项目子路径（`/McBracket/`）不需要改任何配置——发布前已在本地以
-`/McBracket/` 子路径实测通过（见 `docs/audit/AUDIT-EVIDENCE.md`）。
+`/McBracket/` 子路径实测通过，上线后又对线上地址
+（https://weishaoah.github.io/McBracket/）用真实浏览器复验：
+8 强名单、「官方数据快照」徽标、非官方声明、完整对局与数据揭晓均正常
+（截图 `docs/audit/audit-13-live-site.png`）。
 
 ## License
 
